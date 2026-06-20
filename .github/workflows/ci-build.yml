@@ -35,7 +35,8 @@ jobs:
         with:
           name: DeepDAW-Windows-${{ github.sha }}
           path: |
-            build/Release/DeepDAW.exe
+            build/DeepDAW_artefacts/Release/DeepDAW.exe
+          if-no-files-found: error
           retention-days: 30
 
       - name: Upload build logs (on failure)
