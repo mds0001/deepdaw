@@ -77,7 +77,7 @@ void TrackHeaderComponent::chooseColour()
             if (result <= 0) return;
             track.colour = palette[result - 1];
             colourButton.setColour(juce::TextButton::buttonColourId, track.colour);
-            colourButton.repaint();
+            repaint(); // refresh the whole row: swatch button + left colour stripe
             if (onChanged) onChanged();
         });
 }

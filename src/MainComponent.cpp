@@ -25,7 +25,10 @@ MainComponent::MainComponent()
     // Track list (left) and timeline (right) each live in a scrollable viewport.
     // The track list hides its own scrollbar; the timeline owns the shared one.
     trackListViewport.setViewedComponent(&trackList, false);
-    trackListViewport.setScrollBarsShown(false, false);
+    // Hide the track-list scrollbar (the timeline owns the visible one) but
+    // still allow the mouse wheel to scroll it — the 3rd arg enables wheel
+    // scrolling without a visible scrollbar, which a plain (false,false) drops.
+    trackListViewport.setScrollBarsShown(false, false, true, false);
     addAndMakeVisible(trackListViewport);
 
     timelineViewport.setViewedComponent(&timeline, false);
