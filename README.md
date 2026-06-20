@@ -52,7 +52,7 @@ If you prefer to build locally:
 .\build.bat
 ```
 
-Executable will be at `build\Release\DeepDAW.exe`.
+Executable will be at `build\DeepDAW_artefacts\Release\DeepDAW.exe`.
 
 ---
 
