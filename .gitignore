@@ -1,0 +1,29 @@
+# Build artifacts
+build/
+out/
+*.exe
+*.dll
+*.lib
+*.pdb
+*.ilk
+
+# JUCE generated
+JuceLibraryCode/
+**/JuceHeader.h
+
+# IDE
+.vs/
+*.vcxproj*
+*.sln
+*.suo
+*.user
+*.sdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.log
+*.bak
