@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# JUCE configuration - fetch latest stable 8.x
+# JUCE configuration - fetch latest stable 8.x (trigger rebuild)
 include(FetchContent)
 FetchContent_Declare(
     JUCE
@@ -28,7 +28,6 @@ juce_add_gui_app(DeepDAW
 target_sources(DeepDAW
     PRIVATE
         src/Main.cpp
-        src/DeepDAWApplication.cpp
         src/MainComponent.cpp
         src/TransportComponent.cpp
         src/LookAndFeel.cpp

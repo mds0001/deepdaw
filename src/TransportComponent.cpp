@@ -25,15 +25,9 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
 
     bpmLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(bpmLabel);
-
-    // Real-time safe defaults
-    deviceManager.addAudioCallback(this); // Not strictly necessary but keeps device awake
 }
 
-TransportComponent::~TransportComponent()
-{
-    deviceManager.removeAudioCallback(this);
-}
+TransportComponent::~TransportComponent() = default;
 
 void TransportComponent::paint(juce::Graphics& g)
 {
