@@ -16,6 +16,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure CMake (Ninja)
         run: |
           cmake -B build -S . `
