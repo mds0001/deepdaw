@@ -1,8 +1,6 @@
-name: Build DeepDAW (Windows)
+name: Build DeepDAW on Pull Requests
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -16,11 +14,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
       - name: Configure CMake
         run: |
           cmake -B build -S . `
@@ -30,18 +23,22 @@ jobs:
       - name: Build Release
         run: cmake --build build --config Release --parallel 4
 
-      - name: Upload DeepDAW executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: DeepDAW-Windows-${{ github.sha }}
-          path: |
-            build/Release/DeepDAW.exe
-          retention-days: 30
-
       - name: Upload build logs (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs-${{ github.run_id }}
+          name: build-logs-pr-${{ github.run_id }}
           path: build/
           retention-days: 7
+
+      - name: Comment on PR (success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Build succeeded for this pull request. Ready for review and merge.'
+            })
