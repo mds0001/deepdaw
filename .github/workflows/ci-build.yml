@@ -1,0 +1,47 @@
+name: Build DeepDAW (Windows)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . `
+            -DCMAKE_BUILD_TYPE=Release `
+            -G "Visual Studio 18 2026" -A x64
+
+      - name: Build Release
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Upload DeepDAW executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeepDAW-Windows-${{ github.sha }}
+          path: |
+            build/Release/DeepDAW.exe
+          retention-days: 30
+
+      - name: Upload build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ github.run_id }}
+          path: build/
+          retention-days: 7
