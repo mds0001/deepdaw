@@ -1,7 +1,7 @@
 # Phase 3: Audio Recording Specification
 
 **Version**: 1.0
-**Status**: Draft – awaiting approval
+**Status**: Complete – tagged `v0.4.0-phase3`
 **Owner**: AI Agent (implementation + Git)
 **Reviewer**: User (validation only)
 
