@@ -13,7 +13,8 @@ class ClipComponent : public juce::Component,
 {
 public:
     ClipComponent(const Clip& clip, int trackIndex, int trackId, int clipIndex,
-                  juce::Colour trackColour, juce::AudioFormatManager& formatManager,
+                  juce::Colour trackColour, bool isMidi,
+                  juce::AudioFormatManager& formatManager,
                   juce::AudioThumbnailCache& cache);
     ~ClipComponent() override;
 
@@ -46,6 +47,8 @@ private:
     int trackId = 0;
     int clipIndex = 0;
     bool fileMissing = false;
+    bool isMidi = false;
+    std::vector<MidiNote> notes; // copy for the mini preview (MIDI clips)
     juce::AudioThumbnail thumbnail;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ClipComponent)

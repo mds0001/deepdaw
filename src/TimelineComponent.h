@@ -17,6 +17,7 @@ public:
     void paint(juce::Graphics&) override;
     void paintOverChildren(juce::Graphics&) override; // playhead, on top of clips
     void mouseDown(const juce::MouseEvent&) override;
+    void mouseDoubleClick(const juce::MouseEvent&) override;
     void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
     // FileDragAndDropTarget: drop audio files onto a lane to import them.
@@ -52,6 +53,8 @@ public:
     std::function<void(float wheelDeltaY, float anchorContentX)> onZoomGesture;
     // Fired when an audio file is dropped on an audio lane (trackId, start beat).
     std::function<void(int trackId, double startBeat, const juce::File&)> onFileDropped;
+    // Fired when an empty MIDI lane is double-clicked (create a clip there).
+    std::function<void(int trackId, double startBeat)> onCreateMidiClip;
 
     static constexpr int rulerHeight = 32;
     static constexpr int basePixelsPerBar = 80;

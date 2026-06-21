@@ -24,7 +24,9 @@ void TimelineComponent::rebuildClips()
         for (int j = 0; j < (int) tracks[i]->clips.size(); ++j)
         {
             auto comp = std::make_unique<ClipComponent>(tracks[i]->clips[j], i, tracks[i]->id, j,
-                                                        tracks[i]->colour, formatManager, thumbnailCache);
+                                                        tracks[i]->colour,
+                                                        tracks[i]->type == TrackType::midi,
+                                                        formatManager, thumbnailCache);
             comp->onDragStart = [this](ClipComponent* c, const juce::MouseEvent& e) { clipDragStart(c, e.getEventRelativeTo(this).x); };
             comp->onDrag      = [this](ClipComponent* c, const juce::MouseEvent& e) { clipDrag(c, e.getEventRelativeTo(this).x); };
             comp->onDragEnd   = [this](ClipComponent* c, const juce::MouseEvent&)   { clipDragEnd(c); };
@@ -142,6 +144,27 @@ void TimelineComponent::mouseDown(const juce::MouseEvent& e)
     const double beats = juce::jmax(0.0, e.position.x / getPixelsPerBeat());
     if (onSeek)
         onSeek(beats);
+}
+
+void TimelineComponent::mouseDoubleClick(const juce::MouseEvent& e)
+{
+    // Double-clicking an empty MIDI lane creates a new (empty) MIDI clip, its
+    // start snapped to the bar. (Double-clicks that land on an existing clip are
+    // consumed by the ClipComponent, not here.)
+    const int i = trackIndexAt(e.y);
+    if (i < 0)
+        return;
+
+    const auto& tracks = trackList.getTracks();
+    if (tracks[i]->type != TrackType::midi)
+        return;
+
+    const double beat = juce::jmax(0.0, e.position.x / getPixelsPerBeat());
+    const double barBeats = 4.0;
+    const double startBeat = std::floor(beat / barBeats) * barBeats; // snap to bar
+
+    if (onCreateMidiClip)
+        onCreateMidiClip(tracks[i]->id, startBeat);
 }
 
 void TimelineComponent::mouseWheelMove(const juce::MouseEvent& e,

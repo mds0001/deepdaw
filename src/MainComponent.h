@@ -66,6 +66,7 @@ private:
 
     void importAudioForTrack(int trackId);
     void addImportedClip(int trackId, double startBeat, const juce::File& file);
+    void addMidiClip(int trackId, double startBeat);
     void reloadEngineClips();
     void startRecordingFlow();
     void stopRecordingFlow();

@@ -97,6 +97,10 @@ MainComponent::MainComponent()
     {
         addImportedClip(trackId, startBeat, file);
     };
+    timeline.onCreateMidiClip = [this](int trackId, double startBeat)
+    {
+        addMidiClip(trackId, startBeat);
+    };
 
     trackListViewport.onVisibleAreaChanged = [this](juce::Rectangle<int> area)
     {
@@ -447,6 +451,15 @@ void MainComponent::addImportedClip(int trackId, double startBeat, const juce::F
     clip.startBeat   = juce::jmax(0.0, startBeat);
     clip.lengthBeats = lengthBeats;
 
+    trackList.addClip(trackId, clip); // notifies -> rebuilds clip blocks
+}
+
+void MainComponent::addMidiClip(int trackId, double startBeat)
+{
+    Clip clip;
+    clip.name        = "MIDI";
+    clip.startBeat   = juce::jmax(0.0, startBeat);
+    clip.lengthBeats = 4.0; // one bar; the piano roll (Increment 2) edits length/notes
     trackList.addClip(trackId, clip); // notifies -> rebuilds clip blocks
 }
 
