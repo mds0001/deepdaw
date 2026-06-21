@@ -60,6 +60,7 @@ private:
 
     void importAudioForTrack(int trackId);
     void addImportedClip(int trackId, double startBeat, const juce::File& file);
+    void reloadEngineClips();
 
     juce::MenuBarComponent menuBar;
     std::unique_ptr<juce::FileChooser> fileChooser;
@@ -89,7 +90,6 @@ private:
     bool syncingScroll = false;
 
     double playheadBeats = 0.0;
-    double lastTickMs = 0.0;
 
     static constexpr int trackListWidth = 280;
 

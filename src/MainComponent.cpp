@@ -97,15 +97,8 @@ MainComponent::MainComponent()
     transport->onReturnToZero = [this] { setPlayheadBeats(0.0); };
     transport->onPlayingChanged = [this](bool playing)
     {
-        if (playing)
-        {
-            lastTickMs = juce::Time::getMillisecondCounterHiRes();
-            startTimerHz(60);
-        }
-        else
-        {
-            stopTimer();
-        }
+        if (playing) startTimerHz(60); // follow the engine's position while playing
+        else         stopTimer();
     };
 
     setSize(1200, 700);
@@ -124,29 +117,23 @@ MainComponent::~MainComponent()
 
 void MainComponent::setPlayheadBeats(double beats)
 {
+    // Move both the engine's play position and the visual playhead (used for
+    // seeking/rewind, which must agree whether or not we are playing).
     playheadBeats = juce::jlimit(0.0, (double) TimelineComponent::numBars * 4.0, beats);
+    transport->setPositionBeats(playheadBeats);
     timeline.setPlayheadBeats(playheadBeats);
-    ruler.repaint(); // ruler shows the matching playhead marker
-
-    // Reset the tick reference so resuming playback continues smoothly from
-    // the new position rather than jumping by the elapsed idle time.
-    lastTickMs = juce::Time::getMillisecondCounterHiRes();
+    ruler.repaint();
 }
 
 void MainComponent::timerCallback()
 {
-    const double now = juce::Time::getMillisecondCounterHiRes();
-    const double deltaMs = now - lastTickMs;
-    lastTickMs = now;
-
-    const double beatsPerMs = transport->getBpm() / 60000.0;
-    const double maxBeats = TimelineComponent::numBars * 4.0;
-
-    playheadBeats = juce::jlimit(0.0, maxBeats, playheadBeats + deltaMs * beatsPerMs);
+    // While playing, the audio engine owns the position; the playhead follows.
+    playheadBeats = juce::jlimit(0.0, (double) TimelineComponent::numBars * 4.0,
+                                 transport->getPositionBeats());
     timeline.setPlayheadBeats(playheadBeats);
     ruler.repaint();
 
-    if (playheadBeats >= maxBeats) // reached the end of the arrangement
+    if (! transport->getIsPlaying())
         stopTimer();
 }
 
@@ -281,10 +268,36 @@ void MainComponent::addTrack(TrackType type)
 void MainComponent::handleTracksChanged()
 {
     // The track list has already resized itself to its new row count; mirror
-    // that in the timeline (including its clip blocks) and refresh bounds.
+    // that in the timeline (including its clip blocks), reload the audio
+    // engine's clips, and refresh bounds.
     timeline.rebuildClips();
+    reloadEngineClips();
     updateContentBounds();
     timeline.repaint();
+}
+
+void MainComponent::reloadEngineClips()
+{
+    // Preload every clip's audio into memory for real-time-safe playback.
+    std::vector<LoadedClip> loaded;
+
+    for (const auto& track : trackList.getTracks())
+        for (const auto& clip : track->clips)
+        {
+            juce::File file(clip.filePath);
+            std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
+            if (reader == nullptr || reader->lengthInSamples <= 0)
+                continue;
+
+            LoadedClip lc;
+            lc.fileSampleRate = reader->sampleRate;
+            lc.startBeat      = clip.startBeat;
+            lc.audio.setSize((int) reader->numChannels, (int) reader->lengthInSamples);
+            reader->read(&lc.audio, 0, (int) reader->lengthInSamples, 0, true, true);
+            loaded.push_back(std::move(lc));
+        }
+
+    transport->setClips(std::move(loaded));
 }
 
 void MainComponent::importAudioForTrack(int trackId)

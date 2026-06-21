@@ -21,7 +21,7 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
     bpmSlider.setValue(120.0);
     bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     bpmSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    bpmSlider.onValueChange = [this] { currentBPM = bpmSlider.getValue(); };
+    bpmSlider.onValueChange = [this] { setBpm(bpmSlider.getValue()); };
     addAndMakeVisible(bpmSlider);
 
     bpmLabel.setJustificationType(juce::Justification::centred);
@@ -32,12 +32,37 @@ TransportComponent::~TransportComponent() = default;
 
 void TransportComponent::setBpm(double newBpm)
 {
+    // Preserve the play position in beats across a tempo change.
+    const double beats = getPositionBeats();
+
     currentBPM = juce::jlimit(40.0, 240.0, newBpm);
     bpmSlider.setValue(currentBPM, juce::dontSendNotification);
     bpmLabel.setText(juce::String((int) currentBPM), juce::dontSendNotification);
 
     if (sampleRate > 0.0)
         samplesPerBeat = static_cast<int>((60.0 / currentBPM) * sampleRate);
+
+    setPositionBeats(beats);
+}
+
+double TransportComponent::getPositionBeats() const
+{
+    if (sampleRate <= 0.0)
+        return 0.0;
+
+    return (double) positionSamples.load() / sampleRate * (currentBPM / 60.0);
+}
+
+void TransportComponent::setPositionBeats(double beats)
+{
+    const double sr = sampleRate > 0.0 ? sampleRate : 48000.0;
+    positionSamples.store((int64_t) (juce::jmax(0.0, beats) * (60.0 / currentBPM) * sr));
+}
+
+void TransportComponent::setClips(std::vector<LoadedClip>&& newClips)
+{
+    const juce::SpinLock::ScopedLockType sl(clipLock);
+    loadedClips = std::move(newClips);
 }
 
 void TransportComponent::paint(juce::Graphics& g)
@@ -79,7 +104,7 @@ void TransportComponent::buttonClicked(juce::Button* button)
     {
         isPlaying = false;
         isRecording = false;
-        currentSample = 0;
+        positionSamples.store(0);
         if (onReturnToZero) onReturnToZero();
     }
     else if (button == &recordButton)
@@ -89,12 +114,12 @@ void TransportComponent::buttonClicked(juce::Button* button)
     }
     else if (button == &rewindButton)
     {
-        currentSample = 0;
+        positionSamples.store(0);
         if (onReturnToZero) onReturnToZero();
     }
     else if (button == &metronomeButton)
     {
-        toggleMetronome();
+        metronomeEnabled = metronomeButton.getToggleState();
     }
 
     if (isPlaying != wasPlaying && onPlayingChanged)
@@ -110,57 +135,80 @@ void TransportComponent::updateTransportState()
     metronomeButton.setToggleState(metronomeEnabled, juce::dontSendNotification);
 }
 
-void TransportComponent::toggleMetronome()
-{
-    metronomeEnabled = !metronomeEnabled;
-
-    if (metronomeEnabled)
-    {
-        metronomeSource.setFrequency(880.0); // High click
-        mixer.addInputSource(&metronomeSource, false);
-    }
-    else
-    {
-        mixer.removeAllInputs();
-    }
-}
-
-void TransportComponent::prepareToPlay(int samplesPerBlockExpected, double newSampleRate)
+void TransportComponent::prepareToPlay(int, double newSampleRate)
 {
     sampleRate = newSampleRate;
     samplesPerBeat = static_cast<int>((60.0 / currentBPM) * sampleRate);
-    metronomeSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
-    mixer.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 
 void TransportComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
     bufferToFill.clearActiveBufferRegion();
 
-    if (isPlaying && metronomeEnabled)
-    {
-        // Simple metronome click generation (real-time safe)
-        auto* left = bufferToFill.buffer->getWritePointer(0, bufferToFill.startSample);
-        auto* right = bufferToFill.buffer->getWritePointer(1, bufferToFill.startSample);
+    if (! isPlaying)
+        return;
 
-        for (int i = 0; i < bufferToFill.numSamples; ++i)
+    auto* buffer        = bufferToFill.buffer;
+    const int start     = bufferToFill.startSample;
+    const int numSamples = bufferToFill.numSamples;
+    const int numOutCh  = buffer->getNumChannels();
+    const int64_t pos   = positionSamples.load();
+    const double sr     = sampleRate;
+    const double secsPerBeat = 60.0 / currentBPM;
+
+    // Mix clips by reading each one at the play position (interpolated).
+    {
+        const juce::SpinLock::ScopedTryLockType sl(clipLock);
+        if (sl.isLocked())
         {
-            if ((currentSample + i) % samplesPerBeat < 200) // Short click
+            for (const auto& clip : loadedClips)
             {
-                float click = 0.3f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 880.0 * (currentSample + i) / sampleRate);
-                left[i] = click;
-                right[i] = click;
+                const double clipStartSec = clip.startBeat * secsPerBeat;
+                const int clipLen = clip.audio.getNumSamples();
+                const int clipCh  = clip.audio.getNumChannels();
+                if (clipLen <= 0 || clipCh <= 0)
+                    continue;
+                const double clipDurSec = clipLen / clip.fileSampleRate;
+
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    const double local = (double) (pos + i) / sr - clipStartSec;
+                    if (local < 0.0 || local >= clipDurSec)
+                        continue;
+
+                    const double srcIdx = local * clip.fileSampleRate;
+                    const int i0   = (int) srcIdx;
+                    const int i1   = juce::jmin(i0 + 1, clipLen - 1);
+                    const float fr = (float) (srcIdx - i0);
+
+                    for (int ch = 0; ch < numOutCh; ++ch)
+                    {
+                        const float* s = clip.audio.getReadPointer(juce::jmin(ch, clipCh - 1));
+                        buffer->addSample(ch, start + i, s[i0] + fr * (s[i1] - s[i0]));
+                    }
+                }
             }
         }
     }
 
-    currentSample += bufferToFill.numSamples;
-    if (currentSample > samplesPerBeat * 4) // 4 beats loop for demo
-        currentSample = 0;
+    // Metronome click on each beat.
+    if (metronomeEnabled && samplesPerBeat > 0)
+    {
+        for (int i = 0; i < numSamples; ++i)
+        {
+            if ((pos + i) % samplesPerBeat < 200)
+            {
+                const float click = 0.3f * (float) std::sin(2.0 * juce::MathConstants<double>::pi
+                                                            * 880.0 * (double) (pos + i) / sr);
+                for (int ch = 0; ch < numOutCh; ++ch)
+                    buffer->addSample(ch, start + i, click);
+            }
+        }
+    }
+
+    positionSamples.store(pos + numSamples);
 }
 
 void TransportComponent::releaseResources()
 {
-    metronomeSource.releaseResources();
-    mixer.releaseResources();
 }
