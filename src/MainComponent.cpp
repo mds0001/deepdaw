@@ -195,7 +195,10 @@ void MainComponent::openProject()
         if (ProjectIO::loadFromFile(file, data))
         {
             transport->setBpm(data.bpm);
-            trackList.load(data.tracks);
+            timeline.setZoom(data.zoom);
+            trackList.load(data.tracks);          // triggers updateContentBounds at the new zoom
+            timelineViewport.setViewPosition(0, 0); // back to the start of the arrangement
+            ruler.repaint();
             currentProjectFile = file;
             setWindowTitle(file.getFileNameWithoutExtension());
         }
@@ -235,7 +238,8 @@ void MainComponent::saveProjectAs()
 void MainComponent::writeProjectTo(const juce::File& file)
 {
     ProjectData data;
-    data.bpm = transport->getBpm();
+    data.bpm  = transport->getBpm();
+    data.zoom = timeline.getZoom();
     for (const auto& t : trackList.getTracks())
         data.tracks.push_back(*t);
 

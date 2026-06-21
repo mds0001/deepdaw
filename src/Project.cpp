@@ -35,6 +35,7 @@ juce::String ProjectIO::toJsonString(const ProjectData& data)
     auto* root = new juce::DynamicObject();
     root->setProperty("version", formatVersion);
     root->setProperty("bpm", data.bpm);
+    root->setProperty("zoom", data.zoom);
     root->setProperty("tracks", trackArray);
 
     return juce::JSON::toString(juce::var(root), false); // multi-line, readable
@@ -47,7 +48,8 @@ bool ProjectIO::parseJsonString(const juce::String& jsonText, ProjectData& out)
         return false;
 
     out = ProjectData{};
-    out.bpm = (double) parsed.getProperty("bpm", 120.0);
+    out.bpm  = (double) parsed.getProperty("bpm", 120.0);
+    out.zoom = (double) parsed.getProperty("zoom", 1.0);
 
     if (auto* arr = parsed.getProperty("tracks", juce::var()).getArray())
     {
