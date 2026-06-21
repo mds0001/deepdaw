@@ -306,7 +306,15 @@ void MainComponent::startRecordingFlow()
 
 void MainComponent::stopRecordingFlow()
 {
-    transport->stopRecording(); // finalizes the take file (clip creation: Increment 4)
+    transport->stopRecording(); // finalizes the take file
+
+    // Turn the take into a clip on the armed track, at the beat where recording
+    // began. addImportedClip reads the file's length and adds it for playback.
+    if (recordingTrackId >= 0 && recordingFile.existsAsFile() && recordingFile.getSize() > 1024)
+        addImportedClip(recordingTrackId, transport->getRecordStartBeat(), recordingFile);
+
+    recordingTrackId = -1;
+    recordingFile = juce::File();
 }
 
 void MainComponent::reloadEngineClips()
