@@ -8,7 +8,8 @@
 // the right. rebuild() recreates strips from the track model (after add/remove/
 // reorder/rename/colour); refreshStrips() only re-pulls control values (after a
 // mute/solo edit elsewhere). The master fader drives the engine master gain.
-class MixerComponent : public juce::Component
+class MixerComponent : public juce::Component,
+                       private juce::Timer
 {
 public:
     explicit MixerComponent(TrackListComponent& trackList);
@@ -25,12 +26,21 @@ public:
     std::function<void()> onMixChanged;          // a strip edited gain/pan/M/S
     std::function<void(float)> onMasterChanged;   // master fader moved
 
+    // Output-level sources for the meters (per track index, and master).
+    std::function<float(int trackIndex)> trackLevelProvider;
+    std::function<float()> masterLevelProvider;
+
 private:
+    void timerCallback() override; // refresh all meters at ~30 Hz
+
     TrackListComponent& trackList;
     std::vector<std::unique_ptr<ChannelStripComponent>> strips;
 
     juce::Slider masterFader;
     juce::Label masterLabel{"master", "MASTER"};
+
+    float masterMeterLevel = 0.0f;
+    juce::Rectangle<int> masterMeterBounds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerComponent)
 };

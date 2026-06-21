@@ -53,6 +53,8 @@ MainComponent::MainComponent()
         transport->setMasterGain(v);
         transport->setMasterSliderValue(v); // keep the transport OUT slider in sync
     };
+    mixer.trackLevelProvider  = [this](int slot) { return transport->getTrackOutputLevel(slot); };
+    mixer.masterLevelProvider = [this] { return transport->getMasterOutputLevel(); };
 
     tracksHeaderLabel.setJustificationType(juce::Justification::centredLeft);
     tracksHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8a8a8a));
@@ -367,8 +369,10 @@ void MainComponent::reloadEngineClips()
         if (t->soloed) { anySolo = true; break; }
 
     std::vector<LoadedClip> loaded;
-    for (const auto& track : trackList.getTracks())
+    const auto& tracks = trackList.getTracks();
+    for (int trackIndex = 0; trackIndex < (int) tracks.size(); ++trackIndex)
     {
+        const auto& track = tracks[trackIndex];
         const bool trackAudible = anySolo ? track->soloed : ! track->muted;
 
         for (const auto& clip : track->clips)
@@ -396,6 +400,7 @@ void MainComponent::reloadEngineClips()
             lc.audible        = trackAudible;
             lc.gain           = track->gain;
             lc.pan            = track->pan;
+            lc.trackSlot      = trackIndex;
             loaded.push_back(std::move(lc));
         }
     }

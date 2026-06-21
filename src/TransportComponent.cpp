@@ -62,9 +62,12 @@ TransportComponent::~TransportComponent()
 
 void TransportComponent::timerCallback()
 {
-    // Smooth the meter: jump up to new peaks, decay down gently.
+    // Smooth the meters: jump up to new peaks, decay down gently.
     meterDisplay = juce::jmax(inputLevel.load(), meterDisplay * 0.80f);
     repaint(meterBounds);
+
+    outMeterDisplay = juce::jmax(masterPeak.load(), outMeterDisplay * 0.80f);
+    repaint(outMeterBounds);
 }
 
 void TransportComponent::setBpm(double newBpm)
@@ -128,6 +131,21 @@ void TransportComponent::paint(juce::Graphics& g)
         g.setColour(juce::Colour(0xff3a3a3a));
         g.drawRect(meterBounds, 1);
     }
+
+    // Master output meter (right of the OUT slider).
+    if (! outMeterBounds.isEmpty())
+    {
+        g.setColour(juce::Colour(0xff141414));
+        g.fillRect(outMeterBounds);
+
+        const float level = juce::jlimit(0.0f, 1.0f, outMeterDisplay);
+        auto fill = outMeterBounds.toFloat().withWidth(outMeterBounds.getWidth() * level);
+        g.setColour(level > 0.9f ? juce::Colour(0xffff1744) : juce::Colour(0xff00c853));
+        g.fillRect(fill);
+
+        g.setColour(juce::Colour(0xff3a3a3a));
+        g.drawRect(outMeterBounds, 1);
+    }
 }
 
 void TransportComponent::resized()
@@ -152,7 +170,9 @@ void TransportComponent::resized()
 
     area.removeFromLeft(14);
     masterLabel.setBounds(area.removeFromLeft(34));
-    masterSlider.setBounds(area.removeFromLeft(110));
+    masterSlider.setBounds(area.removeFromLeft(96));
+    area.removeFromLeft(6);
+    outMeterBounds = area.removeFromLeft(56).reduced(0, 10); // master output meter
 
     area.removeFromLeft(24); // gap + room for the "IN" label
     meterBounds = area.removeFromLeft(100).reduced(0, 10);
@@ -258,6 +278,14 @@ void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* in
                 juce::FloatVectorOperations::add(outputChannelData[ch], inputChannelData[srcCh], numSamples);
         }
 
+    // Master output peak (post everything that reaches the speakers).
+    float mpeak = 0.0f;
+    for (int ch = 0; ch < numOutputChannels; ++ch)
+        if (const float* out = outputChannelData[ch])
+            for (int i = 0; i < numSamples; ++i)
+                mpeak = juce::jmax(mpeak, std::abs(out[i]));
+    masterPeak.store(mpeak);
+
     // Stream the input to the recording file (ThreadedWriter buffers; the disk
     // write happens on the background thread). Skipped during the count-in.
     if (! countingIn)
@@ -344,13 +372,18 @@ double TransportComponent::getRecordStartBeat() const
 void TransportComponent::renderNextBlock(juce::AudioBuffer<float>& output)
 {
     if (! isPlaying)
+    {
+        for (auto& p : trackPeaks) p.store(0.0f); // meters decay to silence when stopped
         return;
+    }
 
     const int numSamples = output.getNumSamples();
     const int numOutCh   = output.getNumChannels();
     const int64_t pos    = positionSamples.load();
     const double sr      = sampleRate;
     const double secsPerBeat = 60.0 / currentBPM;
+
+    float slotPeak[maxMeteredTracks] = { 0.0f }; // per-track output peak this block
 
     // Mix clips by reading each one at the play position (interpolated).
     {
@@ -377,6 +410,8 @@ void TransportComponent::renderNextBlock(juce::AudioBuffer<float>& output)
                                         * juce::MathConstants<float>::pi;
                 const float lGain = std::cos(angle);
                 const float rGain = std::sin(angle);
+                const int slot = juce::jlimit(0, maxMeteredTracks - 1, clip.trackSlot);
+                float clipPeak = 0.0f;
 
                 for (int i = 0; i < numSamples; ++i)
                 {
@@ -393,12 +428,19 @@ void TransportComponent::renderNextBlock(juce::AudioBuffer<float>& output)
                     {
                         const float* s = buf.getReadPointer(juce::jmin(ch, clipCh - 1));
                         const float panG = (numOutCh >= 2) ? (ch == 0 ? lGain : (ch == 1 ? rGain : 1.0f)) : 1.0f;
-                        output.addSample(ch, i, (s[i0] + fr * (s[i1] - s[i0])) * g * panG);
+                        const float v = (s[i0] + fr * (s[i1] - s[i0])) * g;
+                        output.addSample(ch, i, v * panG);
+                        clipPeak = juce::jmax(clipPeak, std::abs(v));
                     }
                 }
+
+                slotPeak[slot] = juce::jmax(slotPeak[slot], clipPeak);
             }
         }
     }
+
+    for (int s = 0; s < maxMeteredTracks; ++s)
+        trackPeaks[(size_t) s].store(slotPeak[s]);
 
     // Metronome click on each beat.
     if (metronomeEnabled && samplesPerBeat > 0)

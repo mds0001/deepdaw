@@ -17,8 +17,10 @@ public:
     void resized() override;
 
     void refreshControls(); // sync controls from the model (no callbacks)
+    void refreshMeter();    // pull the output level + peak-hold/decay, repaint
 
-    std::function<void()> onMixChanged; // gain / pan / mute / solo edited here
+    std::function<void()> onMixChanged;  // gain / pan / mute / solo edited here
+    std::function<float()> getLevel;     // current post-fader output peak (0..1)
 
     static constexpr int stripWidth = 74;
 
@@ -30,6 +32,9 @@ private:
     juce::Slider panSlider;
     juce::TextButton muteButton{"M"};
     juce::TextButton soloButton{"S"};
+
+    float meterLevel = 0.0f; // smoothed output level (UI thread)
+    juce::Rectangle<int> meterBounds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelStripComponent)
 };

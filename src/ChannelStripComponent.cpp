@@ -62,6 +62,13 @@ void ChannelStripComponent::refreshControls()
     soloButton.setToggleState(track.soloed, juce::dontSendNotification);
 }
 
+void ChannelStripComponent::refreshMeter()
+{
+    const float level = getLevel ? getLevel() : 0.0f;
+    meterLevel = juce::jmax(level, meterLevel * 0.82f); // jump up, decay down
+    repaint(meterBounds);
+}
+
 void ChannelStripComponent::paint(juce::Graphics& g)
 {
     auto& lf = DeepDAWLookAndFeel::getInstance();
@@ -85,6 +92,22 @@ void ChannelStripComponent::paint(juce::Graphics& g)
     g.setFont(11.0f);
     g.drawText("PAN", panSlider.getBounds().translated(0, -13).withHeight(12),
                juce::Justification::centred, false);
+
+    // Output level meter (post-fader/pan), bottom-up fill.
+    if (! meterBounds.isEmpty())
+    {
+        g.setColour(juce::Colour(0xff141414));
+        g.fillRect(meterBounds);
+
+        const float level = juce::jlimit(0.0f, 1.0f, meterLevel);
+        auto fill = meterBounds.toFloat();
+        fill = fill.withTrimmedTop(fill.getHeight() * (1.0f - level));
+        g.setColour(level > 0.9f ? juce::Colour(0xffff1744) : juce::Colour(0xff00c853));
+        g.fillRect(fill);
+
+        g.setColour(juce::Colour(0xff3a3a3a));
+        g.drawRect(meterBounds, 1);
+    }
 }
 
 void ChannelStripComponent::resized()
@@ -102,5 +125,8 @@ void ChannelStripComponent::resized()
     soloButton.setBounds(buttons);
     area.removeFromBottom(6);
 
-    gainFader.setBounds(area.reduced(8, 0));
+    // Fader on the left, a thin output meter pinned to the right.
+    meterBounds = area.removeFromRight(8).reduced(0, 2);
+    area.removeFromRight(4);
+    gainFader.setBounds(area.reduced(6, 0));
 }

@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <atomic>
+#include <array>
 #include <vector>
 #include <memory>
 
@@ -18,6 +19,7 @@ struct LoadedClip
     bool audible = true; // false when the track is muted / not soloed
     float gain = 1.0f;   // track volume (linear)
     float pan = 0.0f;    // track pan (-1..+1)
+    int trackSlot = 0;   // track index, for per-track output metering
 };
 
 // Transport bar UI plus the audio engine. It is the device audio callback: it
@@ -70,6 +72,14 @@ public:
 
     // Most recent input peak (0..1), for metering.
     float getInputLevel() const { return inputLevel.load(); }
+
+    // Per-track and master OUTPUT peaks (post-fader/pan), for the mixer meters.
+    static constexpr int maxMeteredTracks = 64;
+    float getTrackOutputLevel(int slot) const
+    {
+        return (slot >= 0 && slot < maxMeteredTracks) ? trackPeaks[(size_t) slot].load() : 0.0f;
+    }
+    float getMasterOutputLevel() const { return masterPeak.load(); }
 
     // Master output gain (linear).
     void setMasterGain(float g) { masterGain.store(juce::jlimit(0.0f, 2.0f, g)); }
@@ -125,6 +135,11 @@ private:
 
     std::atomic<float> masterGain{ 1.0f };
     float currentMasterGain = 1.0f;             // ramped on the audio thread
+
+    std::array<std::atomic<float>, maxMeteredTracks> trackPeaks{}; // per-track output peaks
+    std::atomic<float> masterPeak{ 0.0f };      // final mix output peak
+    float outMeterDisplay = 0.0f;               // smoothed master meter (UI thread)
+    juce::Rectangle<int> outMeterBounds;
 
     juce::SpinLock clipLock;
     std::vector<LoadedClip> loadedClips;
