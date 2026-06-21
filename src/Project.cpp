@@ -29,6 +29,19 @@ juce::String ProjectIO::toJsonString(const ProjectData& data)
         obj->setProperty("muted", t.muted);
         obj->setProperty("solo", t.soloed);
         obj->setProperty("armed", t.armed);
+
+        juce::Array<juce::var> clipArray;
+        for (const auto& clip : t.clips)
+        {
+            auto* co = new juce::DynamicObject();
+            co->setProperty("name", clip.name);
+            co->setProperty("file", clip.filePath);
+            co->setProperty("startBeat", clip.startBeat);
+            co->setProperty("lengthBeats", clip.lengthBeats);
+            clipArray.add(juce::var(co));
+        }
+        obj->setProperty("clips", clipArray);
+
         trackArray.add(juce::var(obj));
     }
 
@@ -64,6 +77,18 @@ bool ProjectIO::parseJsonString(const juce::String& jsonText, ProjectData& out)
             t.muted  = (bool) tv.getProperty("muted", false);
             t.soloed = (bool) tv.getProperty("solo", false);
             t.armed  = (bool) tv.getProperty("armed", false);
+
+            if (auto* clipsArr = tv.getProperty("clips", juce::var()).getArray())
+                for (const auto& cv : *clipsArr)
+                {
+                    Clip clip;
+                    clip.name        = cv.getProperty("name", juce::String()).toString();
+                    clip.filePath    = cv.getProperty("file", juce::String()).toString();
+                    clip.startBeat   = (double) cv.getProperty("startBeat", 0.0);
+                    clip.lengthBeats = (double) cv.getProperty("lengthBeats", 0.0);
+                    t.clips.push_back(clip);
+                }
+
             out.tracks.push_back(t);
         }
     }
