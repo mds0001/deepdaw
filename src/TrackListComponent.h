@@ -36,9 +36,21 @@ private:
     void rebuildHeaders();
     void notifyChanged();
 
+    // Row-reorder drag, driven by TrackHeaderComponent's mouse callbacks.
+    void startDrag(TrackHeaderComponent* header, int mouseYInList);
+    void dragRow(TrackHeaderComponent* header, int mouseYInList);
+    void endDrag(TrackHeaderComponent* header);
+    int indexOfHeader(const TrackHeaderComponent* header) const;
+    void layoutHeaders(const TrackHeaderComponent* floating);
+
     std::vector<std::unique_ptr<Track>> tracks;
     std::vector<std::unique_ptr<TrackHeaderComponent>> headers;
     int nextId = 1;
+
+    TrackHeaderComponent* draggedHeader = nullptr;
+    int dragMouseStartY = 0;
+    int dragHeaderStartY = 0;
+    bool reorderHappened = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackListComponent)
 };

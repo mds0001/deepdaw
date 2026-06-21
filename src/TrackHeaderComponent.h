@@ -5,7 +5,7 @@
 
 // One row in the track list: index, editable name, colour swatch, and the
 // standard Mute / Solo / Record-arm toggles. Right-click anywhere on the row
-// background to delete the track.
+// background to delete the track; left-drag the row background to reorder.
 class TrackHeaderComponent : public juce::Component
 {
 public:
@@ -15,6 +15,8 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
 
     void setDisplayIndex(int newIndex);
 
@@ -22,6 +24,10 @@ public:
     std::function<void()> onDeleteRequested;
     // Fired when any visible property changes (name, colour, M/S/R state).
     std::function<void()> onChanged;
+    // Row-reorder drag, forwarded to the owning list (which does the work).
+    std::function<void(TrackHeaderComponent*, const juce::MouseEvent&)> onDragStart;
+    std::function<void(TrackHeaderComponent*, const juce::MouseEvent&)> onDrag;
+    std::function<void(TrackHeaderComponent*, const juce::MouseEvent&)> onDragEnd;
 
 private:
     void updateToggleStates();

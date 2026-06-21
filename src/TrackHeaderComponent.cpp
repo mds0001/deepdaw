@@ -84,17 +84,36 @@ void TrackHeaderComponent::chooseColour()
 
 void TrackHeaderComponent::mouseDown(const juce::MouseEvent& e)
 {
-    if (! e.mods.isPopupMenu())
+    if (e.mods.isPopupMenu())
+    {
+        juce::PopupMenu menu;
+        menu.addItem(1, "Delete Track");
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+            [this](int result)
+            {
+                if (result == 1 && onDeleteRequested)
+                    onDeleteRequested();
+            });
         return;
+    }
 
-    juce::PopupMenu menu;
-    menu.addItem(1, "Delete Track");
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
-        [this](int result)
-        {
-            if (result == 1 && onDeleteRequested)
-                onDeleteRequested();
-        });
+    // Left-press on the row background begins a reorder drag. (Clicks that land
+    // on the name field or the M/S/R/colour buttons are consumed by those
+    // child components and never reach here.)
+    if (onDragStart)
+        onDragStart(this, e);
+}
+
+void TrackHeaderComponent::mouseDrag(const juce::MouseEvent& e)
+{
+    if (! e.mods.isPopupMenu() && onDrag)
+        onDrag(this, e);
+}
+
+void TrackHeaderComponent::mouseUp(const juce::MouseEvent& e)
+{
+    if (! e.mods.isPopupMenu() && onDragEnd)
+        onDragEnd(this, e);
 }
 
 void TrackHeaderComponent::paint(juce::Graphics& g)

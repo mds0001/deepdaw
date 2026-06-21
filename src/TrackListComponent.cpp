@@ -80,6 +80,9 @@ void TrackListComponent::rebuildHeaders()
 
         header->onDeleteRequested = [this, trackId] { removeTrack(trackId); };
         header->onChanged = [this] { notifyChanged(); };
+        header->onDragStart = [this](TrackHeaderComponent* h, const juce::MouseEvent& e) { startDrag(h, e.getEventRelativeTo(this).y); };
+        header->onDrag      = [this](TrackHeaderComponent* h, const juce::MouseEvent& e) { dragRow(h, e.getEventRelativeTo(this).y); };
+        header->onDragEnd   = [this](TrackHeaderComponent* h, const juce::MouseEvent&)   { endDrag(h); };
 
         addAndMakeVisible(header.get());
         headers.push_back(std::move(header));
@@ -94,6 +97,82 @@ void TrackListComponent::notifyChanged()
 {
     if (onTracksChanged)
         onTracksChanged();
+}
+
+int TrackListComponent::indexOfHeader(const TrackHeaderComponent* header) const
+{
+    for (int i = 0; i < (int) headers.size(); ++i)
+        if (headers[i].get() == header)
+            return i;
+    return -1;
+}
+
+void TrackListComponent::layoutHeaders(const TrackHeaderComponent* floating)
+{
+    // Snap every row to its index, except the one the user is dragging, which
+    // is left to float under the cursor. Display numbers follow the new order.
+    for (int i = 0; i < (int) headers.size(); ++i)
+    {
+        headers[i]->setDisplayIndex(i);
+        if (headers[i].get() != floating)
+            headers[i]->setBounds(0, i * rowHeight, getWidth(), rowHeight);
+    }
+}
+
+void TrackListComponent::startDrag(TrackHeaderComponent* header, int mouseYInList)
+{
+    draggedHeader     = header;
+    reorderHappened   = false;
+    dragHeaderStartY  = header->getY();
+    dragMouseStartY   = mouseYInList;
+    header->toFront(false);
+    header->setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+}
+
+void TrackListComponent::dragRow(TrackHeaderComponent* header, int mouseYInList)
+{
+    if (draggedHeader != header)
+        return;
+
+    const int last = (int) tracks.size() - 1;
+    const int newY = juce::jlimit(0, last * rowHeight,
+                                  dragHeaderStartY + (mouseYInList - dragMouseStartY));
+    header->setTopLeftPosition(0, newY);
+
+    const int target  = juce::jlimit(0, last, (newY + rowHeight / 2) / rowHeight);
+    const int current = indexOfHeader(header);
+
+    if (current >= 0 && target != current)
+    {
+        // Move the row (and its track) to the new slot, keeping the two vectors
+        // in lockstep, then re-lay the rest around the floating row.
+        auto track  = std::move(tracks[current]);
+        auto hdr    = std::move(headers[current]);
+        tracks.erase(tracks.begin() + current);
+        headers.erase(headers.begin() + current);
+        tracks.insert(tracks.begin() + target, std::move(track));
+        headers.insert(headers.begin() + target, std::move(hdr));
+
+        reorderHappened = true;
+        layoutHeaders(header);
+    }
+}
+
+void TrackListComponent::endDrag(TrackHeaderComponent* header)
+{
+    if (draggedHeader != header)
+        return;
+
+    header->setMouseCursor(juce::MouseCursor::NormalCursor);
+
+    const int idx = indexOfHeader(header);
+    if (idx >= 0)
+        header->setBounds(0, idx * rowHeight, getWidth(), rowHeight); // snap home
+
+    draggedHeader = nullptr;
+
+    if (reorderHappened)
+        notifyChanged();
 }
 
 void TrackListComponent::paint(juce::Graphics& g)
