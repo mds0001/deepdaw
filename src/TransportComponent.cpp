@@ -10,12 +10,14 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
     addAndMakeVisible(rewindButton);
     addAndMakeVisible(forwardButton);
     addAndMakeVisible(metronomeButton);
+    addAndMakeVisible(monitorButton);
 
     playButton.addListener(this);
     stopButton.addListener(this);
     recordButton.addListener(this);
     rewindButton.addListener(this);
     metronomeButton.addListener(this);
+    monitorButton.addListener(this);
 
     bpmSlider.setRange(40.0, 240.0, 1.0);
     bpmSlider.setValue(120.0);
@@ -120,8 +122,10 @@ void TransportComponent::resized()
 
     area.removeFromLeft(20);
     metronomeButton.setBounds(area.removeFromLeft(100));
+    area.removeFromLeft(8);
+    monitorButton.setBounds(area.removeFromLeft(90));
 
-    area.removeFromLeft(20);
+    area.removeFromLeft(16);
     bpmLabel.setBounds(area.removeFromLeft(40));
     bpmSlider.setBounds(area.removeFromLeft(150));
 
@@ -159,6 +163,10 @@ void TransportComponent::buttonClicked(juce::Button* button)
     else if (button == &metronomeButton)
     {
         metronomeEnabled = metronomeButton.getToggleState();
+    }
+    else if (button == &monitorButton)
+    {
+        monitorEnabled = monitorButton.getToggleState();
     }
 
     // Recording change first, so the host opens/closes the take file at the
@@ -204,6 +212,16 @@ void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* in
             for (int i = 0; i < numSamples; ++i)
                 peak = juce::jmax(peak, std::abs(in[i]));
     inputLevel.store(peak);
+
+    // Input monitoring: pass the input through to the output so the user hears
+    // themselves (off by default — this can feed back through speakers).
+    if (monitorEnabled)
+        for (int ch = 0; ch < numOutputChannels; ++ch)
+        {
+            const int srcCh = juce::jmin(ch, numInputChannels - 1);
+            if (srcCh >= 0 && inputChannelData[srcCh] != nullptr && outputChannelData[ch] != nullptr)
+                juce::FloatVectorOperations::add(outputChannelData[ch], inputChannelData[srcCh], numSamples);
+        }
 
     // Stream the input to the recording file (ThreadedWriter buffers; the disk
     // write happens on the background thread). Lock only contends on start/stop.

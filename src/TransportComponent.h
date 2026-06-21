@@ -84,6 +84,7 @@ private:
     juce::TextButton rewindButton{"<<"};
     juce::TextButton forwardButton{">>"};
     juce::ToggleButton metronomeButton{"Metronome"};
+    juce::ToggleButton monitorButton{"Monitor"};
 
     juce::Slider bpmSlider;
     juce::Label bpmLabel{"BPM", "120"};
@@ -91,6 +92,7 @@ private:
     bool isPlaying = false;
     bool isRecording = false;
     bool metronomeEnabled = false;
+    bool monitorEnabled = false;
     double currentBPM = 120.0;
     double sampleRate = 48000.0;
     int samplesPerBeat = 0;
