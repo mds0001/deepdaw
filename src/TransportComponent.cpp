@@ -203,7 +203,12 @@ void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* in
 {
     juce::AudioBuffer<float> output(outputChannelData, numOutputChannels, numSamples);
     output.clear();
-    renderNextBlock(output);
+
+    const bool countingIn = countInSamplesLeft > 0;
+    if (countingIn)
+        renderCountIn(output); // clicks only; play position frozen
+    else
+        renderNextBlock(output);
 
     // Input peak for the meter.
     float peak = 0.0f;
@@ -224,12 +229,38 @@ void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* in
         }
 
     // Stream the input to the recording file (ThreadedWriter buffers; the disk
-    // write happens on the background thread). Lock only contends on start/stop.
+    // write happens on the background thread). Skipped during the count-in.
+    if (! countingIn)
     {
         const juce::ScopedLock sl(writerLock);
         if (auto* w = activeWriter.load(); w != nullptr && numInputChannels > 0)
             w->write(inputChannelData, numSamples);
     }
+}
+
+void TransportComponent::renderCountIn(juce::AudioBuffer<float>& output)
+{
+    const int numSamples = output.getNumSamples();
+    const int numOutCh   = output.getNumChannels();
+
+    if (samplesPerBeat > 0)
+        for (int i = 0; i < numSamples; ++i)
+            if ((countInElapsed + i) % samplesPerBeat < 200)
+            {
+                const float click = 0.3f * (float) std::sin(2.0 * juce::MathConstants<double>::pi
+                                                            * 880.0 * (double) (countInElapsed + i) / sampleRate);
+                for (int ch = 0; ch < numOutCh; ++ch)
+                    output.addSample(ch, i, click);
+            }
+
+    countInElapsed     += numSamples;
+    countInSamplesLeft -= numSamples; // position is intentionally not advanced
+}
+
+void TransportComponent::startCountIn()
+{
+    countInElapsed = 0;
+    countInSamplesLeft = (int64_t) (samplesPerBeat) * 4; // one bar
 }
 
 void TransportComponent::audioDeviceStopped()
@@ -264,6 +295,7 @@ void TransportComponent::startRecording(const juce::File& file)
 
 void TransportComponent::stopRecording()
 {
+    countInSamplesLeft = 0; // cancel any count-in in progress
     {
         const juce::ScopedLock sl(writerLock);
         activeWriter = nullptr;

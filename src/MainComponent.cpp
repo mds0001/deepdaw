@@ -304,6 +304,7 @@ void MainComponent::startRecordingFlow()
     recordingFile = recordingsDir.getChildFile(
         "take_" + juce::Time::getCurrentTime().formatted("%Y%m%d_%H%M%S") + ".wav");
     transport->startRecording(recordingFile);
+    transport->startCountIn(); // 1-bar count-in before capture begins
 }
 
 void MainComponent::stopRecordingFlow()

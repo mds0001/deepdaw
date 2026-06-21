@@ -36,6 +36,11 @@ public:
     void stopRecording();
     double getRecordStartBeat() const; // play position captured when recording began
 
+    // Play a 1-bar metronome count-in before recording begins (position frozen
+    // during it, so the take lands at the cursor).
+    void startCountIn();
+    bool isCountingIn() const { return countInSamplesLeft > 0; }
+
     void paint(juce::Graphics&) override;
     void resized() override;
     void buttonClicked(juce::Button*) override;
@@ -74,6 +79,7 @@ public:
 private:
     void updateTransportState();
     void renderNextBlock(juce::AudioBuffer<float>& output); // clips + metronome
+    void renderCountIn(juce::AudioBuffer<float>& output);   // count-in clicks (position frozen)
     void timerCallback() override;                          // drives the input meter
 
     juce::AudioDeviceManager& deviceManager;
@@ -98,6 +104,8 @@ private:
     int samplesPerBeat = 0;
 
     std::atomic<int64_t> positionSamples{ 0 }; // authoritative play position
+    int64_t countInSamplesLeft = 0;            // > 0 while counting in (position frozen)
+    int64_t countInElapsed = 0;
     std::atomic<float> inputLevel{ 0.0f };     // last input peak, for the meter
     float meterDisplay = 0.0f;                  // smoothed meter value (UI thread)
     juce::Rectangle<int> meterBounds;
