@@ -64,10 +64,17 @@ private:
     void importAudioForTrack(int trackId);
     void addImportedClip(int trackId, double startBeat, const juce::File& file);
     void reloadEngineClips();
+    void startRecordingFlow();
+    void stopRecordingFlow();
 
     juce::MenuBarComponent menuBar;
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::File currentProjectFile;
+
+    // Recording state (the take currently being captured, for Increment 4).
+    juce::File recordingsDir;
+    juce::File recordingFile;
+    int recordingTrackId = -1;
 
     std::unique_ptr<TransportComponent> transport;
     juce::AudioDeviceManager deviceManager;

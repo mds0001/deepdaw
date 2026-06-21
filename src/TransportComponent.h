@@ -31,6 +31,11 @@ public:
     explicit TransportComponent(juce::AudioDeviceManager& deviceManager);
     ~TransportComponent() override;
 
+    // Recording (Phase 3): stream the device input to a wav while recording.
+    void startRecording(const juce::File& file);
+    void stopRecording();
+    double getRecordStartBeat() const; // play position captured when recording began
+
     void paint(juce::Graphics&) override;
     void resized() override;
     void buttonClicked(juce::Button*) override;
@@ -61,6 +66,8 @@ public:
 
     // Fired when playback starts/stops (Play, Stop, Record).
     std::function<void(bool isNowPlaying)> onPlayingChanged;
+    // Fired when recording starts/stops (host opens/closes the take file).
+    std::function<void(bool isNowRecording)> onRecordingChanged;
     // Fired when the position should jump back to the start (Stop, Rewind).
     std::function<void()> onReturnToZero;
 
@@ -95,6 +102,14 @@ private:
 
     juce::SpinLock clipLock;
     std::vector<LoadedClip> loadedClips;
+
+    // Recording to disk (JUCE AudioRecordingDemo pattern).
+    juce::TimeSliceThread backgroundThread{ "DeepDAW Recorder" };
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> threadedWriter;
+    juce::CriticalSection writerLock;
+    std::atomic<juce::AudioFormatWriter::ThreadedWriter*> activeWriter{ nullptr };
+    int deviceInputChannels = 2;
+    int64_t recordStartSample = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TransportComponent)
 };

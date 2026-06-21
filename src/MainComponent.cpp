@@ -23,6 +23,10 @@ MainComponent::MainComponent()
 
     formatManager.registerBasicFormats();
 
+    recordingsDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                        .getChildFile("DeepDAW Recordings");
+    recordingsDir.createDirectory();
+
     addAudioButton.onClick = [this] { addTrack(TrackType::audio); };
     addMidiButton.onClick  = [this] { addTrack(TrackType::midi);  };
     addAndMakeVisible(addAudioButton);
@@ -91,6 +95,12 @@ MainComponent::MainComponent()
     timeline.onZoomGesture = [this](float deltaY, float anchorContentX)
     {
         applyZoom(deltaY > 0.0f ? 1.15 : 1.0 / 1.15, (double) anchorContentX);
+    };
+
+    transport->onRecordingChanged = [this](bool recording)
+    {
+        if (recording) startRecordingFlow();
+        else           stopRecordingFlow();
     };
 
     transport->onReturnToZero = [this] { setPlayheadBeats(0.0); };
@@ -273,6 +283,30 @@ void MainComponent::handleTracksChanged()
     reloadEngineClips();
     updateContentBounds();
     timeline.repaint();
+}
+
+void MainComponent::startRecordingFlow()
+{
+    // Record into the first record-armed audio track.
+    recordingTrackId = -1;
+    for (const auto& t : trackList.getTracks())
+        if (t->armed && t->type == TrackType::audio)
+        {
+            recordingTrackId = t->id;
+            break;
+        }
+
+    if (recordingTrackId < 0)
+        return; // nothing armed — record button just plays
+
+    recordingFile = recordingsDir.getChildFile(
+        "take_" + juce::Time::getCurrentTime().formatted("%Y%m%d_%H%M%S") + ".wav");
+    transport->startRecording(recordingFile);
+}
+
+void MainComponent::stopRecordingFlow()
+{
+    transport->stopRecording(); // finalizes the take file (clip creation: Increment 4)
 }
 
 void MainComponent::reloadEngineClips()

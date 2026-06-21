@@ -28,9 +28,14 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
     addAndMakeVisible(bpmLabel);
 
     startTimerHz(30); // input meter refresh
+    backgroundThread.startThread();
 }
 
-TransportComponent::~TransportComponent() = default;
+TransportComponent::~TransportComponent()
+{
+    stopRecording();
+    backgroundThread.stopThread(2000);
+}
 
 void TransportComponent::timerCallback()
 {
@@ -127,6 +132,7 @@ void TransportComponent::resized()
 void TransportComponent::buttonClicked(juce::Button* button)
 {
     const bool wasPlaying = isPlaying;
+    const bool wasRecording = isRecording;
 
     if (button == &playButton)
     {
@@ -155,6 +161,11 @@ void TransportComponent::buttonClicked(juce::Button* button)
         metronomeEnabled = metronomeButton.getToggleState();
     }
 
+    // Recording change first, so the host opens/closes the take file at the
+    // current position before playback start/stop is handled.
+    if (isRecording != wasRecording && onRecordingChanged)
+        onRecordingChanged(isRecording);
+
     if (isPlaying != wasPlaying && onPlayingChanged)
         onPlayingChanged(isPlaying);
 
@@ -174,6 +185,7 @@ void TransportComponent::audioDeviceAboutToStart(juce::AudioIODevice* device)
     if (sampleRate <= 0.0)
         sampleRate = 48000.0;
     samplesPerBeat = static_cast<int>((60.0 / currentBPM) * sampleRate);
+    deviceInputChannels = juce::jmax(1, device->getActiveInputChannels().countNumberOfSetBits());
 }
 
 void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels,
@@ -185,18 +197,68 @@ void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* in
     output.clear();
     renderNextBlock(output);
 
-    // Input peak for the meter (read-only; recording to disk arrives later).
+    // Input peak for the meter.
     float peak = 0.0f;
     for (int ch = 0; ch < numInputChannels; ++ch)
         if (const float* in = inputChannelData[ch])
             for (int i = 0; i < numSamples; ++i)
                 peak = juce::jmax(peak, std::abs(in[i]));
     inputLevel.store(peak);
+
+    // Stream the input to the recording file (ThreadedWriter buffers; the disk
+    // write happens on the background thread). Lock only contends on start/stop.
+    {
+        const juce::ScopedLock sl(writerLock);
+        if (auto* w = activeWriter.load(); w != nullptr && numInputChannels > 0)
+            w->write(inputChannelData, numSamples);
+    }
 }
 
 void TransportComponent::audioDeviceStopped()
 {
     inputLevel.store(0.0f);
+}
+
+void TransportComponent::startRecording(const juce::File& file)
+{
+    stopRecording();
+
+    if (sampleRate <= 0.0)
+        return;
+
+    file.deleteFile();
+    if (auto fileStream = std::unique_ptr<juce::FileOutputStream>(file.createOutputStream()))
+    {
+        juce::WavAudioFormat wav;
+        if (auto* writer = wav.createWriterFor(fileStream.get(), sampleRate,
+                                               (unsigned int) juce::jmax(1, deviceInputChannels),
+                                               16, {}, 0))
+        {
+            fileStream.release(); // the writer owns the stream now
+            threadedWriter.reset(new juce::AudioFormatWriter::ThreadedWriter(writer, backgroundThread, 32768));
+            recordStartSample = positionSamples.load();
+
+            const juce::ScopedLock sl(writerLock);
+            activeWriter = threadedWriter.get();
+        }
+    }
+}
+
+void TransportComponent::stopRecording()
+{
+    {
+        const juce::ScopedLock sl(writerLock);
+        activeWriter = nullptr;
+    }
+    threadedWriter.reset(); // flushes + closes the file
+}
+
+double TransportComponent::getRecordStartBeat() const
+{
+    if (sampleRate <= 0.0)
+        return 0.0;
+
+    return (double) recordStartSample / sampleRate * (currentBPM / 60.0);
 }
 
 void TransportComponent::renderNextBlock(juce::AudioBuffer<float>& output)
