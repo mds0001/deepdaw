@@ -207,6 +207,9 @@ void MainComponent::newProject()
 {
     trackList.clear();
     transport->setBpm(120.0);
+    transport->setMasterGain(1.0f);
+    transport->setMasterSliderValue(1.0f);
+    mixer.setMasterValue(1.0f);
     audioCache.clear();
     currentProjectFile = juce::File();
     setWindowTitle("Untitled");
@@ -231,6 +234,9 @@ void MainComponent::openProject()
         {
             transport->setBpm(data.bpm);
             timeline.setZoom(data.zoom);
+            transport->setMasterGain((float) data.master);
+            transport->setMasterSliderValue((float) data.master); // OUT slider
+            mixer.setMasterValue((float) data.master);            // mixer master fader
             trackList.load(data.tracks);          // triggers updateContentBounds at the new zoom
             timelineViewport.setViewPosition(0, 0); // back to the start of the arrangement
             ruler.repaint();
@@ -273,8 +279,9 @@ void MainComponent::saveProjectAs()
 void MainComponent::writeProjectTo(const juce::File& file)
 {
     ProjectData data;
-    data.bpm  = transport->getBpm();
-    data.zoom = timeline.getZoom();
+    data.bpm    = transport->getBpm();
+    data.zoom   = timeline.getZoom();
+    data.master = transport->getMasterGain();
     for (const auto& t : trackList.getTracks())
         data.tracks.push_back(*t);
 

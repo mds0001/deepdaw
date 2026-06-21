@@ -29,6 +29,8 @@ juce::String ProjectIO::toJsonString(const ProjectData& data)
         obj->setProperty("muted", t.muted);
         obj->setProperty("solo", t.soloed);
         obj->setProperty("armed", t.armed);
+        obj->setProperty("gain", t.gain);
+        obj->setProperty("pan", t.pan);
 
         juce::Array<juce::var> clipArray;
         for (const auto& clip : t.clips)
@@ -49,6 +51,7 @@ juce::String ProjectIO::toJsonString(const ProjectData& data)
     root->setProperty("version", formatVersion);
     root->setProperty("bpm", data.bpm);
     root->setProperty("zoom", data.zoom);
+    root->setProperty("master", data.master);
     root->setProperty("tracks", trackArray);
 
     return juce::JSON::toString(juce::var(root), false); // multi-line, readable
@@ -61,8 +64,9 @@ bool ProjectIO::parseJsonString(const juce::String& jsonText, ProjectData& out)
         return false;
 
     out = ProjectData{};
-    out.bpm  = (double) parsed.getProperty("bpm", 120.0);
-    out.zoom = (double) parsed.getProperty("zoom", 1.0);
+    out.bpm    = (double) parsed.getProperty("bpm", 120.0);
+    out.zoom   = (double) parsed.getProperty("zoom", 1.0);
+    out.master = (double) parsed.getProperty("master", 1.0);
 
     if (auto* arr = parsed.getProperty("tracks", juce::var()).getArray())
     {
@@ -77,6 +81,8 @@ bool ProjectIO::parseJsonString(const juce::String& jsonText, ProjectData& out)
             t.muted  = (bool) tv.getProperty("muted", false);
             t.soloed = (bool) tv.getProperty("solo", false);
             t.armed  = (bool) tv.getProperty("armed", false);
+            t.gain   = (float) (double) tv.getProperty("gain", 1.0);
+            t.pan    = (float) (double) tv.getProperty("pan", 0.0);
 
             if (auto* clipsArr = tv.getProperty("clips", juce::var()).getArray())
                 for (const auto& cv : *clipsArr)

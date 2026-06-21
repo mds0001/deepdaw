@@ -10,7 +10,8 @@
 struct ProjectData
 {
     double bpm = 120.0;
-    double zoom = 1.0; // timeline horizontal zoom factor
+    double zoom = 1.0;    // timeline horizontal zoom factor
+    double master = 1.0;  // master output gain (linear)
     std::vector<Track> tracks;
 };
 
