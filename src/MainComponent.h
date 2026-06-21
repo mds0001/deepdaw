@@ -9,6 +9,7 @@
 #include "TimelineComponent.h"
 #include "TimelineRulerComponent.h"
 #include "MixerComponent.h"
+#include "PianoRollComponent.h"
 
 class MainComponent : public juce::Component,
                       public juce::MenuBarModel,
@@ -48,6 +49,8 @@ private:
     void handleTracksChanged();
     void handleMixChanged(); // gain/pan/M-S edit: reload engine + refresh views
     void toggleMixer();
+    void openPianoRoll(int trackId, int clipIndex);
+    void closePianoRoll();
     void syncVerticalScroll(int y, bool fromTrackList);
     void updateContentBounds();
 
@@ -107,9 +110,12 @@ private:
     TimelineComponent timeline{trackList, formatManager};
     TimelineRulerComponent ruler{timeline};
     MixerComponent mixer{trackList};
+    PianoRollComponent pianoRoll{trackList};
 
     bool mixerVisible = false;
+    bool pianoRollVisible = false;
     static constexpr int mixerHeight = 210;
+    static constexpr int pianoRollHeight = 300;
 
     SyncViewport trackListViewport;
     SyncViewport timelineViewport;

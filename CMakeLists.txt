@@ -39,6 +39,7 @@ target_sources(DeepDAW
         src/Project.cpp
         src/ChannelStripComponent.cpp
         src/MixerComponent.cpp
+        src/PianoRollComponent.cpp
 )
 
 target_include_directories(DeepDAW PRIVATE src)

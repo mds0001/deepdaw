@@ -31,6 +31,7 @@ void TimelineComponent::rebuildClips()
             comp->onDrag      = [this](ClipComponent* c, const juce::MouseEvent& e) { clipDrag(c, e.getEventRelativeTo(this).x); };
             comp->onDragEnd   = [this](ClipComponent* c, const juce::MouseEvent&)   { clipDragEnd(c); };
             comp->onDeleteRequested = [this](ClipComponent* c) { trackList.removeClip(c->getTrackId(), c->getClipIndex()); };
+            comp->onOpenEditorRequested = [this](ClipComponent* c) { if (onOpenMidiEditor) onOpenMidiEditor(c->getTrackId(), c->getClipIndex()); };
             addAndMakeVisible(comp.get());
             clipComponents.push_back(std::move(comp));
         }

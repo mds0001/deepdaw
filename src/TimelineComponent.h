@@ -55,6 +55,8 @@ public:
     std::function<void(int trackId, double startBeat, const juce::File&)> onFileDropped;
     // Fired when an empty MIDI lane is double-clicked (create a clip there).
     std::function<void(int trackId, double startBeat)> onCreateMidiClip;
+    // Fired when a MIDI clip is double-clicked (open the piano-roll editor).
+    std::function<void(int trackId, int clipIndex)> onOpenMidiEditor;
 
     static constexpr int rulerHeight = 32;
     static constexpr int basePixelsPerBar = 80;

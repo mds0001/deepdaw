@@ -22,6 +22,7 @@ public:
     void mouseDown(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseUp(const juce::MouseEvent&) override;
+    void mouseDoubleClick(const juce::MouseEvent&) override;
 
     double getStartBeat()   const { return startBeat; }
     double getLengthBeats() const { return lengthBeats; }
@@ -35,6 +36,8 @@ public:
     std::function<void(ClipComponent*, const juce::MouseEvent&)> onDrag;
     std::function<void(ClipComponent*, const juce::MouseEvent&)> onDragEnd;
     std::function<void(ClipComponent*)> onDeleteRequested;
+    // Double-click on a MIDI clip: open the piano-roll editor for it.
+    std::function<void(ClipComponent*)> onOpenEditorRequested;
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;

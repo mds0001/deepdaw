@@ -101,6 +101,14 @@ MainComponent::MainComponent()
     {
         addMidiClip(trackId, startBeat);
     };
+    timeline.onOpenMidiEditor = [this](int trackId, int clipIndex)
+    {
+        openPianoRoll(trackId, clipIndex);
+    };
+
+    addChildComponent(pianoRoll);
+    pianoRoll.onClose = [this] { closePianoRoll(); };
+    pianoRoll.onNotesChanged = [this] { timeline.rebuildClips(); }; // refresh the clip block preview
 
     trackListViewport.onVisibleAreaChanged = [this](juce::Rectangle<int> area)
     {
@@ -317,6 +325,11 @@ void MainComponent::handleTracksChanged()
     reloadEngineClips();
     updateContentBounds();
     timeline.repaint();
+
+    // If the piano roll is open, re-resolve its clip (it may have been deleted
+    // or its track's clip vector reallocated); it closes itself if the clip is gone.
+    if (pianoRollVisible)
+        pianoRoll.revalidate();
 }
 
 void MainComponent::handleMixChanged()
@@ -334,7 +347,35 @@ void MainComponent::toggleMixer()
     mixerVisible = mixerButton.getToggleState();
     mixer.setVisible(mixerVisible);
     if (mixerVisible)
+    {
         mixer.rebuild(); // ensure strips match the current track list
+        closePianoRoll(); // the two bottom panels are mutually exclusive
+    }
+    resized();
+}
+
+void MainComponent::openPianoRoll(int trackId, int clipIndex)
+{
+    // The piano roll and mixer share the bottom dock — opening one closes the other.
+    if (mixerVisible)
+    {
+        mixerVisible = false;
+        mixerButton.setToggleState(false, juce::dontSendNotification);
+        mixer.setVisible(false);
+    }
+
+    pianoRoll.openClip(trackId, clipIndex);
+    pianoRollVisible = true;
+    pianoRoll.setVisible(true);
+    resized();
+}
+
+void MainComponent::closePianoRoll()
+{
+    if (! pianoRollVisible)
+        return;
+    pianoRollVisible = false;
+    pianoRoll.setVisible(false);
     resized();
 }
 
@@ -534,8 +575,11 @@ void MainComponent::resized()
     controls.removeFromRight(14);
     mixerButton.setBounds(controls.removeFromRight(72));
 
-    // Mixer panel docks along the bottom (above the status bar) when shown.
-    if (mixerVisible)
+    // A bottom panel docks along the bottom (above the status bar) when shown.
+    // The mixer and piano roll are mutually exclusive, so at most one is visible.
+    if (pianoRollVisible)
+        pianoRoll.setBounds(area.removeFromBottom(pianoRollHeight));
+    else if (mixerVisible)
         mixer.setBounds(area.removeFromBottom(mixerHeight));
 
     auto left = area.removeFromLeft(trackListWidth);

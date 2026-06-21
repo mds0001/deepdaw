@@ -66,6 +66,12 @@ void ClipComponent::mouseUp(const juce::MouseEvent& e)
         onDragEnd(this, e);
 }
 
+void ClipComponent::mouseDoubleClick(const juce::MouseEvent&)
+{
+    if (isMidi && onOpenEditorRequested)
+        onOpenEditorRequested(this); // open the piano roll for this clip
+}
+
 void ClipComponent::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat().reduced(1.0f);
