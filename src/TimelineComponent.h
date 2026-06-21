@@ -15,6 +15,7 @@ public:
     ~TimelineComponent() override = default;
 
     void paint(juce::Graphics&) override;
+    void paintOverChildren(juce::Graphics&) override; // playhead, on top of clips
     void mouseDown(const juce::MouseEvent&) override;
     void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 

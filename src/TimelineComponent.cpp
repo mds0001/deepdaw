@@ -106,10 +106,13 @@ void TimelineComponent::paint(juce::Graphics& g)
         g.drawText("Add a track to begin arranging",
                    getLocalBounds(), juce::Justification::centred, true);
     }
+}
 
-    // Playhead: a bright vertical line spanning the lanes (the ruler draws the
-    // matching marker tab).
-    g.setColour(lf.getAccentColour());
+void TimelineComponent::paintOverChildren(juce::Graphics& g)
+{
+    // Playhead: a bright vertical line spanning the lanes, drawn on top of the
+    // clip blocks (the ruler draws the matching marker tab).
+    g.setColour(DeepDAWLookAndFeel::getInstance().getAccentColour());
     g.fillRect(playheadX(), 0, 2, getHeight());
 }
 
