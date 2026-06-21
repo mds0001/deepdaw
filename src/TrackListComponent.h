@@ -39,6 +39,8 @@ public:
     std::function<void()> onTracksChanged;
     // Fired when a track requests an audio import (host shows the file chooser).
     std::function<void(int trackId)> onImportAudioRequested;
+    // Supplies the current input peak (0..1) to armed-track meters.
+    std::function<float()> inputLevelProvider;
 
 private:
     void rebuildHeaders();

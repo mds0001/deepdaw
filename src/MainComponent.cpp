@@ -68,6 +68,7 @@ MainComponent::MainComponent()
 
     trackList.onTracksChanged = [this] { handleTracksChanged(); };
     trackList.onImportAudioRequested = [this](int trackId) { importAudioForTrack(trackId); };
+    trackList.inputLevelProvider = [this] { return transport->getInputLevel(); };
     timeline.onFileDropped = [this](int trackId, double startBeat, const juce::File& file)
     {
         addImportedClip(trackId, startBeat, file);

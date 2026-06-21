@@ -40,9 +40,31 @@ TrackHeaderComponent::TrackHeaderComponent(Track& trackToControl, int indexToSho
 
     muteButton.onClick = [this] { track.muted  = muteButton.getToggleState(); if (onChanged) onChanged(); };
     soloButton.onClick = [this] { track.soloed = soloButton.getToggleState(); if (onChanged) onChanged(); };
-    armButton.onClick  = [this] { track.armed  = armButton.getToggleState();  if (onChanged) onChanged(); };
+    armButton.onClick  = [this] { track.armed  = armButton.getToggleState(); updateMeterTimer(); if (onChanged) onChanged(); };
 
     updateToggleStates();
+    updateMeterTimer(); // armed tracks (e.g. loaded) start metering immediately
+}
+
+void TrackHeaderComponent::updateMeterTimer()
+{
+    if (track.armed && track.type == TrackType::audio)
+    {
+        startTimerHz(30);
+    }
+    else
+    {
+        stopTimer();
+        meterLevel = 0.0f;
+        repaint(meterBounds);
+    }
+}
+
+void TrackHeaderComponent::timerCallback()
+{
+    const float level = getInputLevel ? getInputLevel() : 0.0f;
+    meterLevel = juce::jmax(level, meterLevel * 0.80f); // jump up, decay down
+    repaint(meterBounds);
 }
 
 void TrackHeaderComponent::setDisplayIndex(int newIndex)
@@ -145,6 +167,21 @@ void TrackHeaderComponent::paint(juce::Graphics& g)
     g.drawText(track.type == TrackType::audio ? "AUD" : "MIDI",
                40, getHeight() - 18, 40, 16, juce::Justification::centredLeft);
 
+    // Input level meter (only while record-armed).
+    if (track.armed && track.type == TrackType::audio && ! meterBounds.isEmpty())
+    {
+        g.setColour(juce::Colour(0xff141414));
+        g.fillRect(meterBounds);
+
+        const float level = juce::jlimit(0.0f, 1.0f, meterLevel);
+        auto fill = meterBounds.toFloat().withWidth(meterBounds.getWidth() * level);
+        g.setColour(level > 0.9f ? juce::Colour(0xffff1744) : juce::Colour(0xff00c853));
+        g.fillRect(fill);
+
+        g.setColour(juce::Colour(0xff3a3a3a));
+        g.drawRect(meterBounds, 1);
+    }
+
     // Bottom separator.
     g.setColour(juce::Colour(0xff1a1a1a));
     g.fillRect(0, getHeight() - 1, getWidth(), 1);
@@ -167,4 +204,7 @@ void TrackHeaderComponent::resized()
     soloButton.setBounds(controls.removeFromLeft(btn));
     controls.removeFromLeft(3);
     armButton.setBounds(controls.removeFromLeft(btn));
+
+    controls.removeFromLeft(8); // input meter fills the rest of the controls row
+    meterBounds = controls.reduced(0, 5);
 }

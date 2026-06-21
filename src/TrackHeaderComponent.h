@@ -6,7 +6,8 @@
 // One row in the track list: index, editable name, colour swatch, and the
 // standard Mute / Solo / Record-arm toggles. Right-click anywhere on the row
 // background to delete the track; left-drag the row background to reorder.
-class TrackHeaderComponent : public juce::Component
+class TrackHeaderComponent : public juce::Component,
+                             private juce::Timer
 {
 public:
     TrackHeaderComponent(Track& trackToControl, int displayIndex);
@@ -31,9 +32,14 @@ public:
     std::function<void(TrackHeaderComponent*, const juce::MouseEvent&)> onDrag;
     std::function<void(TrackHeaderComponent*, const juce::MouseEvent&)> onDragEnd;
 
+    // Returns the current input peak (0..1); used by the armed-track meter.
+    std::function<float()> getInputLevel;
+
 private:
     void updateToggleStates();
     void chooseColour();
+    void updateMeterTimer();
+    void timerCallback() override;
 
     Track& track;
     int displayIndex = 0;
@@ -43,6 +49,9 @@ private:
     juce::TextButton muteButton{"M"};
     juce::TextButton soloButton{"S"};
     juce::TextButton armButton{"R"};
+
+    float meterLevel = 0.0f; // smoothed input level (only meaningful while armed)
+    juce::Rectangle<int> meterBounds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackHeaderComponent)
 };
