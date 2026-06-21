@@ -64,6 +64,7 @@ private:
 
     std::unique_ptr<TransportComponent> transport;
     juce::AudioDeviceManager deviceManager;
+    juce::AudioSourcePlayer audioSourcePlayer; // pulls the transport's audio to the device
 
     juce::TextButton addAudioButton{"+ Audio Track"};
     juce::TextButton addMidiButton{"+ MIDI Track"};
