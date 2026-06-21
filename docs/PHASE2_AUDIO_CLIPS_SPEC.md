@@ -1,7 +1,7 @@
 # Phase 2: Audio Clips & Playback Specification
 
 **Version**: 1.0
-**Status**: Approved – implementing (on `main`)
+**Status**: Complete – tagged `v0.3.0-phase2`
 **Owner**: AI Agent (implementation + Git)
 **Reviewer**: User (validation only)
 
