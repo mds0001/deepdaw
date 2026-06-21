@@ -6,7 +6,8 @@
 #include "TimelineComponent.h"
 
 class MainComponent : public juce::Component,
-                      public juce::MenuBarModel
+                      public juce::MenuBarModel,
+                      private juce::Timer
 {
 public:
     MainComponent();
@@ -21,6 +22,9 @@ public:
     void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
 private:
+    // Timer: advances the playhead during playback.
+    void timerCallback() override;
+    void setPlayheadBeats(double beats);
     // Viewport that reports its vertical scroll offset, so the track list and
     // timeline can be kept row-aligned as either one scrolls.
     class SyncViewport : public juce::Viewport
@@ -68,6 +72,9 @@ private:
     SyncViewport timelineViewport;
 
     bool syncingScroll = false;
+
+    double playheadBeats = 0.0;
+    double lastTickMs = 0.0;
 
     static constexpr int trackListWidth = 280;
 

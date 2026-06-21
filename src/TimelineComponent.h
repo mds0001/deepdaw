@@ -13,17 +13,29 @@ public:
     ~TimelineComponent() override = default;
 
     void paint(juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
 
     // Resize the component to fit the current track count plus the ruler, so a
     // host Viewport gets the correct scroll extents. Call after tracks change.
     void updateContentSize();
 
+    // Playhead position is expressed in beats from the start (4 beats per bar).
+    void setPlayheadBeats(double beats);
+    double getPlayheadBeats() const { return playheadBeats; }
+
+    // Fired when the user clicks the timeline to move the playhead.
+    std::function<void(double beats)> onSeek;
+
     static constexpr int rulerHeight = 32;
     static constexpr int pixelsPerBar = 80;
+    static constexpr int pixelsPerBeat = pixelsPerBar / 4;
     static constexpr int numBars = 64;
 
 private:
+    int playheadX() const;
+
     TrackListComponent& trackList;
+    double playheadBeats = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TimelineComponent)
 };

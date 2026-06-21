@@ -22,6 +22,13 @@ public:
     double getBpm() const { return currentBPM; }
     void setBpm(double newBpm);
 
+    bool getIsPlaying() const { return isPlaying; }
+
+    // Fired when playback starts/stops (Play, Stop, Record).
+    std::function<void(bool isNowPlaying)> onPlayingChanged;
+    // Fired when the position should jump back to the start (Stop, Rewind).
+    std::function<void()> onReturnToZero;
+
 private:
     void updateTransportState();
     void toggleMetronome();

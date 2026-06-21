@@ -73,4 +73,44 @@ void TimelineComponent::paint(juce::Graphics& g)
                    getLocalBounds().withTrimmedTop(rulerHeight),
                    juce::Justification::centred, true);
     }
+
+    // Playhead: a bright vertical line with a marker tab in the ruler, drawn
+    // on top of everything else.
+    const int px = playheadX();
+    g.setColour(lf.getAccentColour());
+    g.fillRect(px, 0, 2, getHeight());
+
+    juce::Path marker;
+    marker.addTriangle((float) px - 5.0f, 0.0f,
+                       (float) px + 7.0f, 0.0f,
+                       (float) px + 1.0f, 8.0f);
+    g.fillPath(marker);
+}
+
+int TimelineComponent::playheadX() const
+{
+    return juce::roundToInt(playheadBeats * pixelsPerBeat);
+}
+
+void TimelineComponent::setPlayheadBeats(double beats)
+{
+    if (beats == playheadBeats)
+        return;
+
+    // Repaint only the columns the playhead leaves and enters, so dragging it
+    // (and 60 fps playback) stays cheap on the wide timeline.
+    const int oldX = playheadX();
+    playheadBeats = beats;
+    const int newX = playheadX();
+
+    const int left  = juce::jmin(oldX, newX) - 8;
+    const int width = std::abs(newX - oldX) + 16;
+    repaint(left, 0, width, getHeight());
+}
+
+void TimelineComponent::mouseDown(const juce::MouseEvent& e)
+{
+    const double beats = juce::jmax(0.0, e.position.x / (double) pixelsPerBeat);
+    if (onSeek)
+        onSeek(beats);
 }

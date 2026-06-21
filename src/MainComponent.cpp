@@ -44,13 +44,58 @@ MainComponent::MainComponent()
     trackListViewport.onVerticalScroll = [this](int y) { syncVerticalScroll(y, true);  };
     timelineViewport.onVerticalScroll  = [this](int y) { syncVerticalScroll(y, false); };
 
+    // Playhead: the timeline reports clicks, the transport reports play state,
+    // and a timer advances the position while playing.
+    timeline.onSeek = [this](double beats) { setPlayheadBeats(beats); };
+
+    transport->onReturnToZero = [this] { setPlayheadBeats(0.0); };
+    transport->onPlayingChanged = [this](bool playing)
+    {
+        if (playing)
+        {
+            lastTickMs = juce::Time::getMillisecondCounterHiRes();
+            startTimerHz(60);
+        }
+        else
+        {
+            stopTimer();
+        }
+    };
+
     setSize(1200, 700);
 }
 
 MainComponent::~MainComponent()
 {
+    stopTimer();
     menuBar.setModel(nullptr);
     setLookAndFeel(nullptr);
+}
+
+void MainComponent::setPlayheadBeats(double beats)
+{
+    playheadBeats = juce::jlimit(0.0, (double) TimelineComponent::numBars * 4.0, beats);
+    timeline.setPlayheadBeats(playheadBeats);
+
+    // Reset the tick reference so resuming playback continues smoothly from
+    // the new position rather than jumping by the elapsed idle time.
+    lastTickMs = juce::Time::getMillisecondCounterHiRes();
+}
+
+void MainComponent::timerCallback()
+{
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    const double deltaMs = now - lastTickMs;
+    lastTickMs = now;
+
+    const double beatsPerMs = transport->getBpm() / 60000.0;
+    const double maxBeats = TimelineComponent::numBars * 4.0;
+
+    playheadBeats = juce::jlimit(0.0, maxBeats, playheadBeats + deltaMs * beatsPerMs);
+    timeline.setPlayheadBeats(playheadBeats);
+
+    if (playheadBeats >= maxBeats) // reached the end of the arrangement
+        stopTimer();
 }
 
 juce::StringArray MainComponent::getMenuBarNames()

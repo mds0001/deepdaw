@@ -14,6 +14,7 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
     playButton.addListener(this);
     stopButton.addListener(this);
     recordButton.addListener(this);
+    rewindButton.addListener(this);
     metronomeButton.addListener(this);
 
     bpmSlider.setRange(40.0, 240.0, 1.0);
@@ -67,6 +68,8 @@ void TransportComponent::resized()
 
 void TransportComponent::buttonClicked(juce::Button* button)
 {
+    const bool wasPlaying = isPlaying;
+
     if (button == &playButton)
     {
         isPlaying = true;
@@ -77,16 +80,25 @@ void TransportComponent::buttonClicked(juce::Button* button)
         isPlaying = false;
         isRecording = false;
         currentSample = 0;
+        if (onReturnToZero) onReturnToZero();
     }
     else if (button == &recordButton)
     {
         isRecording = !isRecording;
         isPlaying = isRecording;
     }
+    else if (button == &rewindButton)
+    {
+        currentSample = 0;
+        if (onReturnToZero) onReturnToZero();
+    }
     else if (button == &metronomeButton)
     {
         toggleMetronome();
     }
+
+    if (isPlaying != wasPlaying && onPlayingChanged)
+        onPlayingChanged(isPlaying);
 
     updateTransportState();
 }
