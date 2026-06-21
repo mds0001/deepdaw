@@ -1,8 +1,8 @@
 #include "TimelineComponent.h"
 #include "LookAndFeel.h"
 
-TimelineComponent::TimelineComponent(TrackListComponent& list)
-    : trackList(list)
+TimelineComponent::TimelineComponent(TrackListComponent& list, juce::AudioFormatManager& fm)
+    : trackList(list), formatManager(fm)
 {
     updateContentSize();
 }
@@ -23,7 +23,8 @@ void TimelineComponent::rebuildClips()
     for (int i = 0; i < (int) tracks.size(); ++i)
         for (const auto& clip : tracks[i]->clips)
         {
-            auto comp = std::make_unique<ClipComponent>(clip, i, tracks[i]->colour);
+            auto comp = std::make_unique<ClipComponent>(clip, i, tracks[i]->colour,
+                                                        formatManager, thumbnailCache);
             addAndMakeVisible(comp.get());
             clipComponents.push_back(std::move(comp));
         }
@@ -71,6 +72,13 @@ void TimelineComponent::paint(juce::Graphics& g)
     {
         g.setColour((i % 2 == 0) ? juce::Colour(0xff232324) : juce::Colour(0xff1f1f20));
         g.fillRect(0, i * rowH, getWidth(), rowH);
+    }
+
+    // Highlight the lane a file is being dragged over.
+    if (dropTargetTrack >= 0 && dropTargetTrack < numTracks)
+    {
+        g.setColour(lf.getAccentColour().withAlpha(0.18f));
+        g.fillRect(0, dropTargetTrack * rowH, getWidth(), rowH);
     }
 
     // Beat subdivisions (lighter), spanning the lanes.
@@ -143,4 +151,60 @@ void TimelineComponent::mouseWheelMove(const juce::MouseEvent& e,
     {
         Component::mouseWheelMove(e, wheel);
     }
+}
+
+int TimelineComponent::trackIndexAt(int y) const
+{
+    const int i = y / TrackListComponent::rowHeight;
+    return juce::isPositiveAndBelow(i, trackList.getNumTracks()) ? i : -1;
+}
+
+static bool looksLikeAudioFile(const juce::String& path)
+{
+    return juce::File(path).hasFileExtension("wav;aiff;aif;flac;mp3;ogg;m4a;wma");
+}
+
+bool TimelineComponent::isInterestedInFileDrag(const juce::StringArray& files)
+{
+    for (const auto& f : files)
+        if (looksLikeAudioFile(f))
+            return true;
+    return false;
+}
+
+void TimelineComponent::fileDragMove(const juce::StringArray&, int, int y)
+{
+    const auto& tracks = trackList.getTracks();
+    const int i = trackIndexAt(y);
+    const int target = (i >= 0 && tracks[i]->type == TrackType::audio) ? i : -1;
+    if (target != dropTargetTrack)
+    {
+        dropTargetTrack = target;
+        repaint();
+    }
+}
+
+void TimelineComponent::fileDragExit(const juce::StringArray&)
+{
+    dropTargetTrack = -1;
+    repaint();
+}
+
+void TimelineComponent::filesDropped(const juce::StringArray& files, int x, int y)
+{
+    dropTargetTrack = -1;
+    repaint();
+
+    const int i = trackIndexAt(y);
+    if (i < 0)
+        return;
+
+    const auto& tracks = trackList.getTracks();
+    if (tracks[i]->type != TrackType::audio)
+        return;
+
+    const double startBeat = juce::jmax(0.0, x / getPixelsPerBeat());
+    for (const auto& f : files)
+        if (looksLikeAudioFile(f) && onFileDropped)
+            onFileDropped(tracks[i]->id, startBeat, juce::File(f));
 }

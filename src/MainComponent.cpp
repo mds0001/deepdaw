@@ -70,6 +70,10 @@ MainComponent::MainComponent()
 
     trackList.onTracksChanged = [this] { handleTracksChanged(); };
     trackList.onImportAudioRequested = [this](int trackId) { importAudioForTrack(trackId); };
+    timeline.onFileDropped = [this](int trackId, double startBeat, const juce::File& file)
+    {
+        addImportedClip(trackId, startBeat, file);
+    };
 
     trackListViewport.onVisibleAreaChanged = [this](juce::Rectangle<int> area)
     {
@@ -295,24 +299,27 @@ void MainComponent::importAudioForTrack(int trackId)
     fileChooser->launchAsync(chooserFlags, [this, trackId](const juce::FileChooser& fc)
     {
         auto file = fc.getResult();
-        if (file == juce::File())
-            return;
-
-        std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
-        if (reader == nullptr || reader->sampleRate <= 0.0)
-            return;
-
-        const double seconds     = (double) reader->lengthInSamples / reader->sampleRate;
-        const double lengthBeats = seconds * (transport->getBpm() / 60.0);
-
-        Clip clip;
-        clip.name        = file.getFileNameWithoutExtension();
-        clip.filePath    = file.getFullPathName();
-        clip.startBeat   = playheadBeats;
-        clip.lengthBeats = lengthBeats;
-
-        trackList.addClip(trackId, clip); // notifies -> rebuilds clip blocks
+        if (file != juce::File())
+            addImportedClip(trackId, playheadBeats, file); // place at the playhead
     });
+}
+
+void MainComponent::addImportedClip(int trackId, double startBeat, const juce::File& file)
+{
+    std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
+    if (reader == nullptr || reader->sampleRate <= 0.0)
+        return;
+
+    const double seconds     = (double) reader->lengthInSamples / reader->sampleRate;
+    const double lengthBeats = seconds * (transport->getBpm() / 60.0);
+
+    Clip clip;
+    clip.name        = file.getFileNameWithoutExtension();
+    clip.filePath    = file.getFullPathName();
+    clip.startBeat   = juce::jmax(0.0, startBeat);
+    clip.lengthBeats = lengthBeats;
+
+    trackList.addClip(trackId, clip); // notifies -> rebuilds clip blocks
 }
 
 void MainComponent::syncVerticalScroll(int y, bool fromTrackList)

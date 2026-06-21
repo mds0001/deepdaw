@@ -59,6 +59,7 @@ private:
     void setWindowTitle(const juce::String& projectName);
 
     void importAudioForTrack(int trackId);
+    void addImportedClip(int trackId, double startBeat, const juce::File& file);
 
     juce::MenuBarComponent menuBar;
     std::unique_ptr<juce::FileChooser> fileChooser;
@@ -79,7 +80,7 @@ private:
     // Declaration order matters: timeline references trackList, and ruler
     // references timeline, so each must be constructed after the one it uses.
     TrackListComponent trackList;
-    TimelineComponent timeline{trackList};
+    TimelineComponent timeline{trackList, formatManager};
     TimelineRulerComponent ruler{timeline};
 
     SyncViewport trackListViewport;
