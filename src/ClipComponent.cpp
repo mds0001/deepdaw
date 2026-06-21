@@ -1,14 +1,15 @@
 #include "ClipComponent.h"
 
-ClipComponent::ClipComponent(const Clip& clip, int indexOfTrack, juce::Colour trackColour,
-                             juce::AudioFormatManager& formatManager, juce::AudioThumbnailCache& cache)
+ClipComponent::ClipComponent(const Clip& clip, int indexOfTrack, int idOfTrack, int indexOfClip,
+                             juce::Colour trackColour, juce::AudioFormatManager& formatManager,
+                             juce::AudioThumbnailCache& cache)
     : name(clip.name), colour(trackColour),
-      startBeat(clip.startBeat), lengthBeats(clip.lengthBeats), trackIndex(indexOfTrack),
+      startBeat(clip.startBeat), lengthBeats(clip.lengthBeats),
+      trackIndex(indexOfTrack), trackId(idOfTrack), clipIndex(indexOfClip),
       thumbnail(512, formatManager, cache)
 {
-    // Clicks fall through to the timeline (so seeking still works); clip
-    // interaction (move/delete) arrives in a later increment.
-    setInterceptsMouseClicks(false, false);
+    setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    setTitle(name); // accessible name
 
     juce::File file(clip.filePath);
     if (file.existsAsFile())
@@ -27,6 +28,37 @@ ClipComponent::~ClipComponent()
 void ClipComponent::changeListenerCallback(juce::ChangeBroadcaster*)
 {
     repaint(); // thumbnail finished/progressed loading
+}
+
+void ClipComponent::mouseDown(const juce::MouseEvent& e)
+{
+    if (e.mods.isPopupMenu())
+    {
+        juce::PopupMenu menu;
+        menu.addItem(1, "Delete Clip");
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+            [this](int result)
+            {
+                if (result == 1 && onDeleteRequested)
+                    onDeleteRequested(this);
+            });
+        return;
+    }
+
+    if (onDragStart)
+        onDragStart(this, e);
+}
+
+void ClipComponent::mouseDrag(const juce::MouseEvent& e)
+{
+    if (! e.mods.isPopupMenu() && onDrag)
+        onDrag(this, e);
+}
+
+void ClipComponent::mouseUp(const juce::MouseEvent& e)
+{
+    if (! e.mods.isPopupMenu() && onDragEnd)
+        onDragEnd(this, e);
 }
 
 void ClipComponent::paint(juce::Graphics& g)

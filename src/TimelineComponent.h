@@ -63,6 +63,11 @@ private:
 
     int trackIndexAt(int y) const;
 
+    // Clip drag (move), coordinated here because the scale + model live here.
+    void clipDragStart(ClipComponent*, int mouseXInTimeline);
+    void clipDrag(ClipComponent*, int mouseXInTimeline);
+    void clipDragEnd(ClipComponent*);
+
     TrackListComponent& trackList;
     juce::AudioFormatManager& formatManager;
     juce::AudioThumbnailCache thumbnailCache{ 64 };
@@ -70,6 +75,10 @@ private:
     double zoom = 1.0;
     int dropTargetTrack = -1; // lane highlighted during a file drag-over
     std::vector<std::unique_ptr<ClipComponent>> clipComponents;
+
+    ClipComponent* draggedClip = nullptr;
+    int dragClipStartX = 0;
+    int dragMouseStartX = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TimelineComponent)
 };

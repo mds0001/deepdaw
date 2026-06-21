@@ -25,6 +25,9 @@ public:
 
     // Add a clip to the track with the given id and notify listeners.
     void addClip(int trackId, const Clip& clip);
+    // Move a clip's start position (in beats) / remove it; both notify.
+    void setClipStart(int trackId, int clipIndex, double startBeat);
+    void removeClip(int trackId, int clipIndex);
 
     int getNumTracks() const           { return (int) tracks.size(); }
     static constexpr int rowHeight = 64;

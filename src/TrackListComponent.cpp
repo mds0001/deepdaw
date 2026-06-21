@@ -80,6 +80,34 @@ void TrackListComponent::addClip(int trackId, const Clip& clip)
         }
 }
 
+void TrackListComponent::setClipStart(int trackId, int clipIndex, double startBeat)
+{
+    for (auto& t : tracks)
+        if (t->id == trackId)
+        {
+            if (juce::isPositiveAndBelow(clipIndex, (int) t->clips.size()))
+            {
+                t->clips[(size_t) clipIndex].startBeat = juce::jmax(0.0, startBeat);
+                notifyChanged();
+            }
+            return;
+        }
+}
+
+void TrackListComponent::removeClip(int trackId, int clipIndex)
+{
+    for (auto& t : tracks)
+        if (t->id == trackId)
+        {
+            if (juce::isPositiveAndBelow(clipIndex, (int) t->clips.size()))
+            {
+                t->clips.erase(t->clips.begin() + clipIndex);
+                notifyChanged();
+            }
+            return;
+        }
+}
+
 void TrackListComponent::rebuildHeaders()
 {
     headers.clear();

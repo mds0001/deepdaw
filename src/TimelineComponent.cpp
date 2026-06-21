@@ -21,10 +21,14 @@ void TimelineComponent::rebuildClips()
 
     const auto& tracks = trackList.getTracks();
     for (int i = 0; i < (int) tracks.size(); ++i)
-        for (const auto& clip : tracks[i]->clips)
+        for (int j = 0; j < (int) tracks[i]->clips.size(); ++j)
         {
-            auto comp = std::make_unique<ClipComponent>(clip, i, tracks[i]->colour,
-                                                        formatManager, thumbnailCache);
+            auto comp = std::make_unique<ClipComponent>(tracks[i]->clips[j], i, tracks[i]->id, j,
+                                                        tracks[i]->colour, formatManager, thumbnailCache);
+            comp->onDragStart = [this](ClipComponent* c, const juce::MouseEvent& e) { clipDragStart(c, e.getEventRelativeTo(this).x); };
+            comp->onDrag      = [this](ClipComponent* c, const juce::MouseEvent& e) { clipDrag(c, e.getEventRelativeTo(this).x); };
+            comp->onDragEnd   = [this](ClipComponent* c, const juce::MouseEvent&)   { clipDragEnd(c); };
+            comp->onDeleteRequested = [this](ClipComponent* c) { trackList.removeClip(c->getTrackId(), c->getClipIndex()); };
             addAndMakeVisible(comp.get());
             clipComponents.push_back(std::move(comp));
         }
@@ -207,4 +211,36 @@ void TimelineComponent::filesDropped(const juce::StringArray& files, int x, int 
     for (const auto& f : files)
         if (looksLikeAudioFile(f) && onFileDropped)
             onFileDropped(tracks[i]->id, startBeat, juce::File(f));
+}
+
+void TimelineComponent::clipDragStart(ClipComponent* c, int mouseXInTimeline)
+{
+    draggedClip     = c;
+    dragClipStartX  = c->getX();
+    dragMouseStartX = mouseXInTimeline;
+    c->toFront(false);
+}
+
+void TimelineComponent::clipDrag(ClipComponent* c, int mouseXInTimeline)
+{
+    if (draggedClip != c)
+        return;
+
+    const int newX = juce::jlimit(0, juce::jmax(0, getWidth() - c->getWidth()),
+                                  dragClipStartX + (mouseXInTimeline - dragMouseStartX));
+    c->setTopLeftPosition(newX, c->getY()); // horizontal move only
+}
+
+void TimelineComponent::clipDragEnd(ClipComponent* c)
+{
+    if (draggedClip != c)
+        return;
+
+    draggedClip = nullptr;
+
+    if (c->getX() == dragClipStartX)
+        return; // a plain click, not a move — avoid a needless rebuild/reload
+
+    const double newStartBeat = c->getX() / getPixelsPerBeat();
+    trackList.setClipStart(c->getTrackId(), c->getClipIndex(), newStartBeat); // notifies -> rebuild + reload
 }

@@ -6,20 +6,34 @@
 // Visual block for one audio clip on a timeline lane: a track-tinted rounded
 // rectangle with the clip name and its waveform. Laid out by TimelineComponent
 // (which knows the pixels-per-beat scale), so the clip stores its musical
-// position for re-layout on zoom.
+// position. Left-drag moves it; right-click deletes it (TimelineComponent does
+// the actual model update via the callbacks).
 class ClipComponent : public juce::Component,
                       private juce::ChangeListener
 {
 public:
-    ClipComponent(const Clip& clip, int trackIndex, juce::Colour trackColour,
-                  juce::AudioFormatManager& formatManager, juce::AudioThumbnailCache& cache);
+    ClipComponent(const Clip& clip, int trackIndex, int trackId, int clipIndex,
+                  juce::Colour trackColour, juce::AudioFormatManager& formatManager,
+                  juce::AudioThumbnailCache& cache);
     ~ClipComponent() override;
 
     void paint(juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
 
     double getStartBeat()   const { return startBeat; }
     double getLengthBeats() const { return lengthBeats; }
     int    getTrackIndex()  const { return trackIndex; }
+    int    getTrackId()     const { return trackId; }
+    int    getClipIndex()   const { return clipIndex; }
+
+    // Drag forwarded to the timeline (which knows the scale and owns the model);
+    // delete requested from the right-click menu.
+    std::function<void(ClipComponent*, const juce::MouseEvent&)> onDragStart;
+    std::function<void(ClipComponent*, const juce::MouseEvent&)> onDrag;
+    std::function<void(ClipComponent*, const juce::MouseEvent&)> onDragEnd;
+    std::function<void(ClipComponent*)> onDeleteRequested;
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
@@ -29,6 +43,8 @@ private:
     double startBeat = 0.0;
     double lengthBeats = 0.0;
     int trackIndex = 0;
+    int trackId = 0;
+    int clipIndex = 0;
     bool fileMissing = false;
     juce::AudioThumbnail thumbnail;
 
