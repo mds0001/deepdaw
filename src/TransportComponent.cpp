@@ -147,7 +147,7 @@ void TransportComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& b
         {
             if ((currentSample + i) % samplesPerBeat < 200) // Short click
             {
-                float click = 0.3f * std::sin(2.0 * juce::MathConstants<double>::pi * 880.0 * (currentSample + i) / sampleRate);
+                float click = 0.3f * (float) std::sin(2.0 * juce::MathConstants<double>::pi * 880.0 * (currentSample + i) / sampleRate);
                 left[i] = click;
                 right[i] = click;
             }

@@ -4,6 +4,7 @@
 #include "TransportComponent.h"
 #include "TrackListComponent.h"
 #include "TimelineComponent.h"
+#include "TimelineRulerComponent.h"
 
 class MainComponent : public juce::Component,
                       public juce::MenuBarModel,
@@ -25,17 +26,17 @@ private:
     // Timer: advances the playhead during playback.
     void timerCallback() override;
     void setPlayheadBeats(double beats);
-    // Viewport that reports its vertical scroll offset, so the track list and
-    // timeline can be kept row-aligned as either one scrolls.
+    // Viewport that reports its visible area, so the track list (vertical) and
+    // ruler (horizontal) can be kept in sync as the timeline scrolls.
     class SyncViewport : public juce::Viewport
     {
     public:
-        std::function<void(int)> onVerticalScroll;
+        std::function<void(juce::Rectangle<int>)> onVisibleAreaChanged;
 
         void visibleAreaChanged(const juce::Rectangle<int>& newVisibleArea) override
         {
-            if (onVerticalScroll)
-                onVerticalScroll(newVisibleArea.getY());
+            if (onVisibleAreaChanged)
+                onVisibleAreaChanged(newVisibleArea);
         }
     };
 
@@ -69,11 +70,13 @@ private:
     juce::TextButton zoomInButton{"+"};
     juce::TextButton zoomOutButton{"-"};
     juce::Label tracksHeaderLabel{"tracksHeader", "TRACKS"};
+    juce::Label statusBar{"statusBar"};
 
-    // Declaration order matters: timeline holds a reference to trackList, so
-    // trackList must be constructed (and destroyed) around it correctly.
+    // Declaration order matters: timeline references trackList, and ruler
+    // references timeline, so each must be constructed after the one it uses.
     TrackListComponent trackList;
     TimelineComponent timeline{trackList};
+    TimelineRulerComponent ruler{timeline};
 
     SyncViewport trackListViewport;
     SyncViewport timelineViewport;

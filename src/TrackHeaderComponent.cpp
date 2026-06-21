@@ -14,7 +14,7 @@ TrackHeaderComponent::TrackHeaderComponent(Track& trackToControl, int indexToSho
     nameLabel.setText(track.name, juce::dontSendNotification);
     nameLabel.setEditable(true);
     nameLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe0e0e0));
-    nameLabel.setFont(juce::Font(15.0f, juce::Font::bold));
+    nameLabel.setFont(juce::Font(juce::FontOptions(15.0f, juce::Font::bold)));
     nameLabel.onTextChange = [this]
     {
         track.name = nameLabel.getText();

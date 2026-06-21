@@ -1,6 +1,7 @@
 #include "MainComponent.h"
 #include "LookAndFeel.h"
 #include "Project.h"
+#include "BuildInfo.h"
 
 MainComponent::MainComponent()
 {
@@ -28,8 +29,17 @@ MainComponent::MainComponent()
 
     tracksHeaderLabel.setJustificationType(juce::Justification::centredLeft);
     tracksHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8a8a8a));
-    tracksHeaderLabel.setFont(juce::Font(12.0f, juce::Font::bold));
+    tracksHeaderLabel.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
     addAndMakeVisible(tracksHeaderLabel);
+
+    statusBar.setText("DeepDAW  v" + juce::String(ProjectInfo::versionString)
+                          + "   build " + DEEPDAW_BUILD_ID,
+                      juce::dontSendNotification);
+    statusBar.setJustificationType(juce::Justification::centredRight);
+    statusBar.setColour(juce::Label::textColourId, juce::Colour(0xff707070));
+    statusBar.setColour(juce::Label::backgroundColourId, juce::Colour(0xff252526));
+    statusBar.setFont(juce::Font(juce::FontOptions(12.0f)));
+    addAndMakeVisible(statusBar);
 
     // Track list (left) and timeline (right) each live in a scrollable viewport.
     // The track list hides its own scrollbar; the timeline owns the shared one.
@@ -44,10 +54,23 @@ MainComponent::MainComponent()
     timelineViewport.setScrollBarsShown(true, true);
     addAndMakeVisible(timelineViewport);
 
+    // The ruler is pinned above the lanes (not scrolled vertically); it mirrors
+    // the timeline's horizontal scroll and shares its seek/zoom behaviour.
+    addAndMakeVisible(ruler);
+    ruler.onSeek        = [this](double beats)                { setPlayheadBeats(beats); };
+    ruler.onZoomGesture = [this](float deltaY, float anchorX) { applyZoom(deltaY > 0.0f ? 1.15 : 1.0 / 1.15, (double) anchorX); };
+
     trackList.onTracksChanged = [this] { handleTracksChanged(); };
 
-    trackListViewport.onVerticalScroll = [this](int y) { syncVerticalScroll(y, true);  };
-    timelineViewport.onVerticalScroll  = [this](int y) { syncVerticalScroll(y, false); };
+    trackListViewport.onVisibleAreaChanged = [this](juce::Rectangle<int> area)
+    {
+        syncVerticalScroll(area.getY(), true);
+    };
+    timelineViewport.onVisibleAreaChanged = [this](juce::Rectangle<int> area)
+    {
+        syncVerticalScroll(area.getY(), false);
+        ruler.setScrollX(area.getX());
+    };
 
     // Playhead: the timeline reports clicks, the transport reports play state,
     // and a timer advances the position while playing.
@@ -86,6 +109,7 @@ void MainComponent::setPlayheadBeats(double beats)
 {
     playheadBeats = juce::jlimit(0.0, (double) TimelineComponent::numBars * 4.0, beats);
     timeline.setPlayheadBeats(playheadBeats);
+    ruler.repaint(); // ruler shows the matching playhead marker
 
     // Reset the tick reference so resuming playback continues smoothly from
     // the new position rather than jumping by the elapsed idle time.
@@ -103,6 +127,7 @@ void MainComponent::timerCallback()
 
     playheadBeats = juce::jlimit(0.0, maxBeats, playheadBeats + deltaMs * beatsPerMs);
     timeline.setPlayheadBeats(playheadBeats);
+    ruler.repaint();
 
     if (playheadBeats >= maxBeats) // reached the end of the arrangement
         stopTimer();
@@ -270,6 +295,7 @@ void MainComponent::applyZoom(double factor, double anchorContentX)
     const double newContentX = beatAtAnchor * timeline.getPixelsPerBeat();
     const int newScrollX = juce::jmax(0, juce::roundToInt(newContentX - anchorInView));
     timelineViewport.setViewPosition(newScrollX, timelineViewport.getViewPositionY());
+    ruler.repaint(); // bar spacing changed
 }
 
 void MainComponent::updateContentBounds()
@@ -280,6 +306,8 @@ void MainComponent::updateContentBounds()
     // tall as the viewport so the background fills when there are few tracks.
     trackList.setSize(trackListViewport.getWidth(),
                       juce::jmax(trackList.getHeight(), trackListViewport.getHeight()));
+
+    ruler.repaint(); // track count / scale may have changed
 }
 
 void MainComponent::paint(juce::Graphics& g)
@@ -292,6 +320,7 @@ void MainComponent::resized()
     auto area = getLocalBounds();
 
     menuBar.setBounds(area.removeFromTop(24));
+    statusBar.setBounds(area.removeFromBottom(22));
     transport->setBounds(area.removeFromTop(48));
 
     auto controls = area.removeFromTop(36).reduced(8, 4);
@@ -308,6 +337,9 @@ void MainComponent::resized()
     tracksHeaderLabel.setBounds(left.removeFromTop(TimelineComponent::rulerHeight)
                                     .withTrimmedLeft(10));
     trackListViewport.setBounds(left);
+
+    // Right pane: pinned ruler strip on top, scrolling lanes below.
+    ruler.setBounds(area.removeFromTop(TimelineComponent::rulerHeight));
     timelineViewport.setBounds(area);
 
     updateContentBounds();

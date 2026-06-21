@@ -11,7 +11,7 @@ void TimelineComponent::updateContentSize()
 {
     const int n = juce::jmax(1, trackList.getNumTracks());
     setSize(juce::roundToInt(numBars * getPixelsPerBar()),
-            rulerHeight + n * TrackListComponent::rowHeight);
+            n * TrackListComponent::rowHeight); // lanes only; the ruler is a separate pinned strip
 }
 
 void TimelineComponent::setZoom(double newZoom)
@@ -33,16 +33,15 @@ void TimelineComponent::paint(juce::Graphics& g)
 
     const int rowH        = TrackListComponent::rowHeight;
     const int numTracks   = trackList.getNumTracks();
-    const int lanesBottom = rulerHeight + numTracks * rowH;
+    const int lanesBottom = numTracks * rowH;
     const double ppb      = getPixelsPerBar();
     const double ppbeat   = ppb / 4.0;
 
     // Lane backgrounds, alternating to match the track headers row-for-row.
     for (int i = 0; i < numTracks; ++i)
     {
-        const int laneY = rulerHeight + i * rowH;
         g.setColour((i % 2 == 0) ? juce::Colour(0xff232324) : juce::Colour(0xff1f1f20));
-        g.fillRect(0, laneY, getWidth(), rowH);
+        g.fillRect(0, i * rowH, getWidth(), rowH);
     }
 
     // Beat subdivisions (lighter), spanning the lanes.
@@ -51,8 +50,7 @@ void TimelineComponent::paint(juce::Graphics& g)
         g.setColour(juce::Colour(0xff2a2a2c));
         for (int bar = 0; bar < numBars; ++bar)
             for (int beat = 1; beat < 4; ++beat)
-                g.fillRect(juce::roundToInt(bar * ppb + beat * ppbeat), rulerHeight,
-                           1, numTracks * rowH);
+                g.fillRect(juce::roundToInt(bar * ppb + beat * ppbeat), 0, 1, lanesBottom);
     }
 
     // Bar lines (stronger).
@@ -60,40 +58,18 @@ void TimelineComponent::paint(juce::Graphics& g)
     for (int bar = 0; bar <= numBars; ++bar)
         g.fillRect(juce::roundToInt(bar * ppb), 0, 1, lanesBottom);
 
-    // Ruler strip with bar numbers, drawn last so it sits above the grid.
-    g.setColour(juce::Colour(0xff2a2a2b));
-    g.fillRect(0, 0, getWidth(), rulerHeight);
-
-    g.setColour(juce::Colour(0xff9a9a9a));
-    g.setFont(12.0f);
-    for (int bar = 0; bar < numBars; ++bar)
-        g.drawText(juce::String(bar + 1),
-                   juce::roundToInt(bar * ppb) + 4, 0, juce::roundToInt(ppb) - 4, rulerHeight,
-                   juce::Justification::centredLeft);
-
-    g.setColour(lf.getAccentColour().withAlpha(0.5f));
-    g.fillRect(0, rulerHeight - 1, getWidth(), 1);
-
     if (numTracks == 0)
     {
         g.setColour(juce::Colour(0xff5a5a5a));
         g.setFont(14.0f);
         g.drawText("Add a track to begin arranging",
-                   getLocalBounds().withTrimmedTop(rulerHeight),
-                   juce::Justification::centred, true);
+                   getLocalBounds(), juce::Justification::centred, true);
     }
 
-    // Playhead: a bright vertical line with a marker tab in the ruler, drawn
-    // on top of everything else.
-    const int px = playheadX();
+    // Playhead: a bright vertical line spanning the lanes (the ruler draws the
+    // matching marker tab).
     g.setColour(lf.getAccentColour());
-    g.fillRect(px, 0, 2, getHeight());
-
-    juce::Path marker;
-    marker.addTriangle((float) px - 5.0f, 0.0f,
-                       (float) px + 7.0f, 0.0f,
-                       (float) px + 1.0f, 8.0f);
-    g.fillPath(marker);
+    g.fillRect(playheadX(), 0, 2, getHeight());
 }
 
 int TimelineComponent::playheadX() const

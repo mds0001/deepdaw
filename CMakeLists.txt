@@ -34,6 +34,7 @@ target_sources(DeepDAW
         src/TrackListComponent.cpp
         src/TrackHeaderComponent.cpp
         src/TimelineComponent.cpp
+        src/TimelineRulerComponent.cpp
         src/Project.cpp
 )
 
@@ -52,6 +53,25 @@ target_link_libraries(DeepDAW
 
 # Enable VST3 hosting support for later phases
 juce_generate_juce_header(DeepDAW)
+
+# Build id: regenerate BuildInfo.h (git short SHA) on every build so the app
+# can show which commit it was built from. Seed an initial header at configure
+# time so the include resolves before the custom target first runs.
+set(DEEPDAW_GEN_DIR "${CMAKE_BINARY_DIR}/generated")
+set(DEEPDAW_BUILD_INFO "${DEEPDAW_GEN_DIR}/BuildInfo.h")
+file(MAKE_DIRECTORY "${DEEPDAW_GEN_DIR}")
+if(NOT EXISTS "${DEEPDAW_BUILD_INFO}")
+    file(WRITE "${DEEPDAW_BUILD_INFO}" "#pragma once\n#define DEEPDAW_BUILD_ID \"dev\"\n")
+endif()
+add_custom_target(deepdaw_build_info
+    BYPRODUCTS "${DEEPDAW_BUILD_INFO}"
+    COMMAND ${CMAKE_COMMAND}
+        -DSRC=${CMAKE_SOURCE_DIR}
+        -DOUTPUT=${DEEPDAW_BUILD_INFO}
+        -P ${CMAKE_SOURCE_DIR}/cmake/GenBuildInfo.cmake
+    COMMENT "Updating build id")
+add_dependencies(DeepDAW deepdaw_build_info)
+target_include_directories(DeepDAW PRIVATE "${DEEPDAW_GEN_DIR}")
 
 # Copy assets (will be populated in later phases)
 if(EXISTS "${CMAKE_SOURCE_DIR}/assets")
