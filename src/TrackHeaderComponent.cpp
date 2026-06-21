@@ -87,12 +87,16 @@ void TrackHeaderComponent::mouseDown(const juce::MouseEvent& e)
     if (e.mods.isPopupMenu())
     {
         juce::PopupMenu menu;
+        if (track.type == TrackType::audio)
+            menu.addItem(2, "Import Audio...");
         menu.addItem(1, "Delete Track");
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
             [this](int result)
             {
                 if (result == 1 && onDeleteRequested)
                     onDeleteRequested();
+                else if (result == 2 && onImportAudioRequested)
+                    onImportAudioRequested();
             });
         return;
     }

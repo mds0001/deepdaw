@@ -58,6 +58,8 @@ private:
     void writeProjectTo(const juce::File&);
     void setWindowTitle(const juce::String& projectName);
 
+    void importAudioForTrack(int trackId);
+
     juce::MenuBarComponent menuBar;
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::File currentProjectFile;
@@ -65,6 +67,7 @@ private:
     std::unique_ptr<TransportComponent> transport;
     juce::AudioDeviceManager deviceManager;
     juce::AudioSourcePlayer audioSourcePlayer; // pulls the transport's audio to the device
+    juce::AudioFormatManager formatManager;    // reads audio files (durations, later playback)
 
     juce::TextButton addAudioButton{"+ Audio Track"};
     juce::TextButton addMidiButton{"+ MIDI Track"};

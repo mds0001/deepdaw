@@ -22,6 +22,8 @@ public:
 
     // Fired when the user requests deletion via the right-click menu.
     std::function<void()> onDeleteRequested;
+    // Fired when the user picks "Import Audio…" from the right-click menu.
+    std::function<void()> onImportAudioRequested;
     // Fired when any visible property changes (name, colour, M/S/R state).
     std::function<void()> onChanged;
     // Row-reorder drag, forwarded to the owning list (which does the work).

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "Clip.h"
+#include <vector>
 
 enum class TrackType
 {
@@ -19,4 +21,5 @@ struct Track
     bool muted = false;
     bool soloed = false;
     bool armed = false;
+    std::vector<Clip> clips;
 };

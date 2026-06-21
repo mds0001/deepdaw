@@ -69,6 +69,17 @@ void TrackListComponent::clear()
     nextId = 1;
 }
 
+void TrackListComponent::addClip(int trackId, const Clip& clip)
+{
+    for (auto& t : tracks)
+        if (t->id == trackId)
+        {
+            t->clips.push_back(clip);
+            notifyChanged();
+            return;
+        }
+}
+
 void TrackListComponent::rebuildHeaders()
 {
     headers.clear();
@@ -79,6 +90,7 @@ void TrackListComponent::rebuildHeaders()
         const int trackId = tracks[i]->id;
 
         header->onDeleteRequested = [this, trackId] { removeTrack(trackId); };
+        header->onImportAudioRequested = [this, trackId] { if (onImportAudioRequested) onImportAudioRequested(trackId); };
         header->onChanged = [this] { notifyChanged(); };
         header->onDragStart = [this](TrackHeaderComponent* h, const juce::MouseEvent& e) { startDrag(h, e.getEventRelativeTo(this).y); };
         header->onDrag      = [this](TrackHeaderComponent* h, const juce::MouseEvent& e) { dragRow(h, e.getEventRelativeTo(this).y); };

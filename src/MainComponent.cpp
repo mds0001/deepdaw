@@ -23,6 +23,8 @@ MainComponent::MainComponent()
     audioSourcePlayer.setSource(transport.get());
     deviceManager.addAudioCallback(&audioSourcePlayer);
 
+    formatManager.registerBasicFormats();
+
     addAudioButton.onClick = [this] { addTrack(TrackType::audio); };
     addMidiButton.onClick  = [this] { addTrack(TrackType::midi);  };
     addAndMakeVisible(addAudioButton);
@@ -67,6 +69,7 @@ MainComponent::MainComponent()
     ruler.onZoomGesture = [this](float deltaY, float anchorX) { applyZoom(deltaY > 0.0f ? 1.15 : 1.0 / 1.15, (double) anchorX); };
 
     trackList.onTracksChanged = [this] { handleTracksChanged(); };
+    trackList.onImportAudioRequested = [this](int trackId) { importAudioForTrack(trackId); };
 
     trackListViewport.onVisibleAreaChanged = [this](juce::Rectangle<int> area)
     {
@@ -274,9 +277,42 @@ void MainComponent::addTrack(TrackType type)
 void MainComponent::handleTracksChanged()
 {
     // The track list has already resized itself to its new row count; mirror
-    // that in the timeline and refresh both viewports' content bounds.
+    // that in the timeline (including its clip blocks) and refresh bounds.
+    timeline.rebuildClips();
     updateContentBounds();
     timeline.repaint();
+}
+
+void MainComponent::importAudioForTrack(int trackId)
+{
+    fileChooser = std::make_unique<juce::FileChooser>(
+        "Import Audio", juce::File(),
+        formatManager.getWildcardForAllFormats());
+
+    auto chooserFlags = juce::FileBrowserComponent::openMode
+                      | juce::FileBrowserComponent::canSelectFiles;
+
+    fileChooser->launchAsync(chooserFlags, [this, trackId](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (file == juce::File())
+            return;
+
+        std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
+        if (reader == nullptr || reader->sampleRate <= 0.0)
+            return;
+
+        const double seconds     = (double) reader->lengthInSamples / reader->sampleRate;
+        const double lengthBeats = seconds * (transport->getBpm() / 60.0);
+
+        Clip clip;
+        clip.name        = file.getFileNameWithoutExtension();
+        clip.filePath    = file.getFullPathName();
+        clip.startBeat   = playheadBeats;
+        clip.lengthBeats = lengthBeats;
+
+        trackList.addClip(trackId, clip); // notifies -> rebuilds clip blocks
+    });
 }
 
 void MainComponent::syncVerticalScroll(int y, bool fromTrackList)

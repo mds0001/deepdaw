@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "TrackListComponent.h"
+#include "ClipComponent.h"
 
 // Draws the timeline ruler (bars) and one lane per track, kept vertically
 // aligned with the track list rows. Editing/clip support arrives in a later
@@ -19,6 +20,11 @@ public:
     // Resize the component to fit the current track count plus the ruler, so a
     // host Viewport gets the correct scroll extents. Call after tracks change.
     void updateContentSize();
+
+    // Recreate clip components from the track model (call when clips/tracks
+    // change); layoutClips repositions existing ones (call on zoom/resize).
+    void rebuildClips();
+    void layoutClips();
 
     // Playhead position is expressed in beats from the start (4 beats per bar).
     void setPlayheadBeats(double beats);
@@ -49,6 +55,7 @@ private:
     TrackListComponent& trackList;
     double playheadBeats = 0.0;
     double zoom = 1.0;
+    std::vector<std::unique_ptr<ClipComponent>> clipComponents;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TimelineComponent)
 };

@@ -23,6 +23,9 @@ public:
     void load(const std::vector<Track>& newTracks);
     void clear();
 
+    // Add a clip to the track with the given id and notify listeners.
+    void addClip(int trackId, const Clip& clip);
+
     int getNumTracks() const           { return (int) tracks.size(); }
     static constexpr int rowHeight = 64;
 
@@ -31,6 +34,8 @@ public:
     // Notified whenever tracks are added, removed, or edited so the host can
     // resize/repaint the timeline alongside the list.
     std::function<void()> onTracksChanged;
+    // Fired when a track requests an audio import (host shows the file chooser).
+    std::function<void(int trackId)> onImportAudioRequested;
 
 private:
     void rebuildHeaders();

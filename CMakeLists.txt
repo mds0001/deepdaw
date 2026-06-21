@@ -35,6 +35,7 @@ target_sources(DeepDAW
         src/TrackHeaderComponent.cpp
         src/TimelineComponent.cpp
         src/TimelineRulerComponent.cpp
+        src/ClipComponent.cpp
         src/Project.cpp
 )
 

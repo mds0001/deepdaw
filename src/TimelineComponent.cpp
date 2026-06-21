@@ -12,6 +12,35 @@ void TimelineComponent::updateContentSize()
     const int n = juce::jmax(1, trackList.getNumTracks());
     setSize(juce::roundToInt(numBars * getPixelsPerBar()),
             n * TrackListComponent::rowHeight); // lanes only; the ruler is a separate pinned strip
+    layoutClips();
+}
+
+void TimelineComponent::rebuildClips()
+{
+    clipComponents.clear();
+
+    const auto& tracks = trackList.getTracks();
+    for (int i = 0; i < (int) tracks.size(); ++i)
+        for (const auto& clip : tracks[i]->clips)
+        {
+            auto comp = std::make_unique<ClipComponent>(clip, i, tracks[i]->colour);
+            addAndMakeVisible(comp.get());
+            clipComponents.push_back(std::move(comp));
+        }
+
+    layoutClips();
+}
+
+void TimelineComponent::layoutClips()
+{
+    const double ppbeat = getPixelsPerBeat();
+    const int rowH = TrackListComponent::rowHeight;
+
+    for (auto& c : clipComponents)
+        c->setBounds(juce::roundToInt(c->getStartBeat() * ppbeat),
+                     c->getTrackIndex() * rowH + 3,
+                     juce::jmax(4, juce::roundToInt(c->getLengthBeats() * ppbeat)),
+                     rowH - 6);
 }
 
 void TimelineComponent::setZoom(double newZoom)
