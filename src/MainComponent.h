@@ -5,7 +5,8 @@
 #include "TrackListComponent.h"
 #include "TimelineComponent.h"
 
-class MainComponent : public juce::Component
+class MainComponent : public juce::Component,
+                      public juce::MenuBarModel
 {
 public:
     MainComponent();
@@ -13,6 +14,11 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+
+    // MenuBarModel
+    juce::StringArray getMenuBarNames() override;
+    juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String& menuName) override;
+    void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
 private:
     // Viewport that reports its vertical scroll offset, so the track list and
@@ -33,6 +39,18 @@ private:
     void handleTracksChanged();
     void syncVerticalScroll(int y, bool fromTrackList);
     void updateContentBounds();
+
+    // Project file operations (wired to the File menu).
+    void newProject();
+    void openProject();
+    void saveProject();
+    void saveProjectAs();
+    void writeProjectTo(const juce::File&);
+    void setWindowTitle(const juce::String& projectName);
+
+    juce::MenuBarComponent menuBar;
+    std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::File currentProjectFile;
 
     std::unique_ptr<TransportComponent> transport;
     juce::AudioDeviceManager deviceManager;

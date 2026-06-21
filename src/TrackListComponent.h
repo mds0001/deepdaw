@@ -18,6 +18,11 @@ public:
     void addTrack(TrackType type);
     void removeTrack(int trackId);
 
+    // Replace the entire track list (used when loading a project). Resets the
+    // id counter past the highest loaded id so new tracks stay unique.
+    void load(const std::vector<Track>& newTracks);
+    void clear();
+
     int getNumTracks() const           { return (int) tracks.size(); }
     static constexpr int rowHeight = 64;
 

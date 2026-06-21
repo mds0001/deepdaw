@@ -29,6 +29,16 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
 
 TransportComponent::~TransportComponent() = default;
 
+void TransportComponent::setBpm(double newBpm)
+{
+    currentBPM = juce::jlimit(40.0, 240.0, newBpm);
+    bpmSlider.setValue(currentBPM, juce::dontSendNotification);
+    bpmLabel.setText(juce::String((int) currentBPM), juce::dontSendNotification);
+
+    if (sampleRate > 0.0)
+        samplesPerBeat = static_cast<int>((60.0 / currentBPM) * sampleRate);
+}
+
 void TransportComponent::paint(juce::Graphics& g)
 {
     g.fillAll(DeepDAWLookAndFeel::getInstance().getPanelColour());

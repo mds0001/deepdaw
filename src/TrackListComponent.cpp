@@ -47,6 +47,28 @@ void TrackListComponent::removeTrack(int trackId)
     notifyChanged();
 }
 
+void TrackListComponent::load(const std::vector<Track>& newTracks)
+{
+    tracks.clear();
+
+    int maxId = 0;
+    for (const auto& t : newTracks)
+    {
+        tracks.push_back(std::make_unique<Track>(t));
+        maxId = juce::jmax(maxId, t.id);
+    }
+
+    nextId = maxId + 1;
+    rebuildHeaders();
+    notifyChanged();
+}
+
+void TrackListComponent::clear()
+{
+    load({});
+    nextId = 1;
+}
+
 void TrackListComponent::rebuildHeaders()
 {
     headers.clear();

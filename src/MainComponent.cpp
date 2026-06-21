@@ -1,10 +1,14 @@
 #include "MainComponent.h"
 #include "LookAndFeel.h"
+#include "Project.h"
 
 MainComponent::MainComponent()
 {
     // Apply custom dark Pro Tools style LookAndFeel
     setLookAndFeel(&DeepDAWLookAndFeel::getInstance());
+
+    menuBar.setModel(this);
+    addAndMakeVisible(menuBar);
 
     // Initialize audio device with sensible real-time defaults
     deviceManager.initialiseWithDefaultDevices(2, 2);
@@ -45,7 +49,127 @@ MainComponent::MainComponent()
 
 MainComponent::~MainComponent()
 {
+    menuBar.setModel(nullptr);
     setLookAndFeel(nullptr);
+}
+
+juce::StringArray MainComponent::getMenuBarNames()
+{
+    return { "File" };
+}
+
+juce::PopupMenu MainComponent::getMenuForIndex(int, const juce::String& menuName)
+{
+    juce::PopupMenu menu;
+
+    if (menuName == "File")
+    {
+        menu.addItem(1, "New");
+        menu.addItem(2, "Open...");
+        menu.addSeparator();
+        menu.addItem(3, "Save");
+        menu.addItem(4, "Save As...");
+        menu.addSeparator();
+        menu.addItem(5, "Exit");
+    }
+
+    return menu;
+}
+
+void MainComponent::menuItemSelected(int menuItemID, int)
+{
+    switch (menuItemID)
+    {
+        case 1: newProject();    break;
+        case 2: openProject();   break;
+        case 3: saveProject();   break;
+        case 4: saveProjectAs(); break;
+        case 5: juce::JUCEApplication::getInstance()->systemRequestedQuit(); break;
+        default: break;
+    }
+}
+
+void MainComponent::newProject()
+{
+    trackList.clear();
+    transport->setBpm(120.0);
+    currentProjectFile = juce::File();
+    setWindowTitle("Untitled");
+}
+
+void MainComponent::openProject()
+{
+    fileChooser = std::make_unique<juce::FileChooser>(
+        "Open Project", juce::File(), "*.deepdaw");
+
+    auto chooserFlags = juce::FileBrowserComponent::openMode
+                      | juce::FileBrowserComponent::canSelectFiles;
+
+    fileChooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (file == juce::File())
+            return;
+
+        ProjectData data;
+        if (ProjectIO::loadFromFile(file, data))
+        {
+            transport->setBpm(data.bpm);
+            trackList.load(data.tracks);
+            currentProjectFile = file;
+            setWindowTitle(file.getFileNameWithoutExtension());
+        }
+    });
+}
+
+void MainComponent::saveProject()
+{
+    if (currentProjectFile == juce::File())
+        saveProjectAs();
+    else
+        writeProjectTo(currentProjectFile);
+}
+
+void MainComponent::saveProjectAs()
+{
+    fileChooser = std::make_unique<juce::FileChooser>(
+        "Save Project", juce::File(), "*.deepdaw");
+
+    auto chooserFlags = juce::FileBrowserComponent::saveMode
+                      | juce::FileBrowserComponent::canSelectFiles
+                      | juce::FileBrowserComponent::warnAboutOverwriting;
+
+    fileChooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+        if (file == juce::File())
+            return;
+
+        if (! file.hasFileExtension("deepdaw"))
+            file = file.withFileExtension("deepdaw");
+
+        writeProjectTo(file);
+    });
+}
+
+void MainComponent::writeProjectTo(const juce::File& file)
+{
+    ProjectData data;
+    data.bpm = transport->getBpm();
+    for (const auto& t : trackList.getTracks())
+        data.tracks.push_back(*t);
+
+    if (ProjectIO::saveToFile(file, data))
+    {
+        currentProjectFile = file;
+        setWindowTitle(file.getFileNameWithoutExtension());
+    }
+}
+
+void MainComponent::setWindowTitle(const juce::String& projectName)
+{
+    if (auto* window = findParentComponentOfClass<juce::DocumentWindow>())
+        window->setName("DeepDAW - " + projectName);
 }
 
 void MainComponent::addTrack(TrackType type)
@@ -93,6 +217,7 @@ void MainComponent::resized()
 {
     auto area = getLocalBounds();
 
+    menuBar.setBounds(area.removeFromTop(24));
     transport->setBounds(area.removeFromTop(48));
 
     auto controls = area.removeFromTop(36).reduced(8, 4);

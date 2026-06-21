@@ -19,6 +19,9 @@ public:
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
     void releaseResources() override;
 
+    double getBpm() const { return currentBPM; }
+    void setBpm(double newBpm);
+
 private:
     void updateTransportState();
     void toggleMetronome();

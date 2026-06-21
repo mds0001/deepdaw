@@ -27,3 +27,7 @@ Thumbs.db
 *.tmp
 *.log
 *.bak
+
+# Project files / scratch screenshots
+*.deepdaw
+ss/

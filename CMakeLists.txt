@@ -34,6 +34,7 @@ target_sources(DeepDAW
         src/TrackListComponent.cpp
         src/TrackHeaderComponent.cpp
         src/TimelineComponent.cpp
+        src/Project.cpp
 )
 
 target_include_directories(DeepDAW PRIVATE src)
