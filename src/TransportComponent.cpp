@@ -19,6 +19,10 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
     metronomeButton.addListener(this);
     monitorButton.addListener(this);
 
+    // Record button fills red while recording (its toggle state).
+    recordButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffff1744));
+    recordButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+
     bpmSlider.setRange(40.0, 240.0, 1.0);
     bpmSlider.setValue(120.0);
     bpmSlider.setSliderStyle(juce::Slider::LinearHorizontal);
