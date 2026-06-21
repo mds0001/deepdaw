@@ -33,6 +33,18 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
     bpmLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(bpmLabel);
 
+    masterSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    masterSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    masterSlider.setRange(0.0, 1.5, 0.001);
+    masterSlider.setValue(1.0, juce::dontSendNotification);
+    masterSlider.setColour(juce::Slider::thumbColourId, DeepDAWLookAndFeel::getInstance().getAccentColour());
+    masterSlider.onValueChange = [this] { setMasterGain((float) masterSlider.getValue()); };
+    addAndMakeVisible(masterSlider);
+
+    masterLabel.setJustificationType(juce::Justification::centredRight);
+    masterLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8a8a8a));
+    addAndMakeVisible(masterLabel);
+
     startTimerHz(30); // input meter refresh
     backgroundThread.startThread();
 }
@@ -129,12 +141,16 @@ void TransportComponent::resized()
     area.removeFromLeft(8);
     monitorButton.setBounds(area.removeFromLeft(90));
 
-    area.removeFromLeft(16);
-    bpmLabel.setBounds(area.removeFromLeft(40));
-    bpmSlider.setBounds(area.removeFromLeft(150));
+    area.removeFromLeft(14);
+    bpmLabel.setBounds(area.removeFromLeft(36));
+    bpmSlider.setBounds(area.removeFromLeft(140));
 
-    area.removeFromLeft(40); // gap + room for the "IN" label
-    meterBounds = area.removeFromLeft(110).reduced(0, 10);
+    area.removeFromLeft(14);
+    masterLabel.setBounds(area.removeFromLeft(34));
+    masterSlider.setBounds(area.removeFromLeft(110));
+
+    area.removeFromLeft(24); // gap + room for the "IN" label
+    meterBounds = area.removeFromLeft(100).reduced(0, 10);
 }
 
 void TransportComponent::buttonClicked(juce::Button* button)
@@ -213,6 +229,11 @@ void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* in
         renderCountIn(output); // clicks only; play position frozen
     else
         renderNextBlock(output);
+
+    // Master output gain, ramped across the block to avoid zipper noise.
+    const float targetMaster = masterGain.load();
+    output.applyGainRamp(0, numSamples, currentMasterGain, targetMaster);
+    currentMasterGain = targetMaster;
 
     // Input peak for the meter.
     float peak = 0.0f;
@@ -345,6 +366,13 @@ void TransportComponent::renderNextBlock(juce::AudioBuffer<float>& output)
                 const double clipStartSec = clip.startBeat * secsPerBeat;
                 const double clipDurSec = clipLen / clip.fileSampleRate;
 
+                // Track volume + equal-power pan (left/right gains).
+                const float g     = clip.gain;
+                const float angle = (juce::jlimit(-1.0f, 1.0f, clip.pan) + 1.0f) * 0.25f
+                                        * juce::MathConstants<float>::pi;
+                const float lGain = std::cos(angle);
+                const float rGain = std::sin(angle);
+
                 for (int i = 0; i < numSamples; ++i)
                 {
                     const double local = (double) (pos + i) / sr - clipStartSec;
@@ -359,7 +387,8 @@ void TransportComponent::renderNextBlock(juce::AudioBuffer<float>& output)
                     for (int ch = 0; ch < numOutCh; ++ch)
                     {
                         const float* s = buf.getReadPointer(juce::jmin(ch, clipCh - 1));
-                        output.addSample(ch, i, s[i0] + fr * (s[i1] - s[i0]));
+                        const float panG = (numOutCh >= 2) ? (ch == 0 ? lGain : (ch == 1 ? rGain : 1.0f)) : 1.0f;
+                        output.addSample(ch, i, (s[i0] + fr * (s[i1] - s[i0])) * g * panG);
                     }
                 }
             }

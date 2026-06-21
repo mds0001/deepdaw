@@ -16,6 +16,8 @@ struct LoadedClip
     double fileSampleRate = 44100.0;
     double startBeat = 0.0;
     bool audible = true; // false when the track is muted / not soloed
+    float gain = 1.0f;   // track volume (linear)
+    float pan = 0.0f;    // track pan (-1..+1)
 };
 
 // Transport bar UI plus the audio engine. It is the device audio callback: it
@@ -69,6 +71,10 @@ public:
     // Most recent input peak (0..1), for metering.
     float getInputLevel() const { return inputLevel.load(); }
 
+    // Master output gain (linear).
+    void setMasterGain(float g) { masterGain.store(juce::jlimit(0.0f, 2.0f, g)); }
+    float getMasterGain() const { return masterGain.load(); }
+
     // Fired when playback starts/stops (Play, Stop, Record).
     std::function<void(bool isNowPlaying)> onPlayingChanged;
     // Fired when recording starts/stops (host opens/closes the take file).
@@ -94,6 +100,8 @@ private:
 
     juce::Slider bpmSlider;
     juce::Label bpmLabel{"BPM", "120"};
+    juce::Slider masterSlider;
+    juce::Label masterLabel{"master", "OUT"};
 
     bool isPlaying = false;
     bool isRecording = false;
@@ -109,6 +117,9 @@ private:
     std::atomic<float> inputLevel{ 0.0f };     // last input peak, for the meter
     float meterDisplay = 0.0f;                  // smoothed meter value (UI thread)
     juce::Rectangle<int> meterBounds;
+
+    std::atomic<float> masterGain{ 1.0f };
+    float currentMasterGain = 1.0f;             // ramped on the audio thread
 
     juce::SpinLock clipLock;
     std::vector<LoadedClip> loadedClips;

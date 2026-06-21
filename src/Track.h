@@ -21,5 +21,7 @@ struct Track
     bool muted = false;
     bool soloed = false;
     bool armed = false;
+    float gain = 1.0f; // linear volume (mixer fader)
+    float pan = 0.0f;  // -1 left .. +1 right
     std::vector<Clip> clips;
 };

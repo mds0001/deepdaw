@@ -356,6 +356,8 @@ void MainComponent::reloadEngineClips()
             lc.fileSampleRate = it->second.sampleRate;
             lc.startBeat      = clip.startBeat;
             lc.audible        = trackAudible;
+            lc.gain           = track->gain;
+            lc.pan            = track->pan;
             loaded.push_back(std::move(lc));
         }
     }
