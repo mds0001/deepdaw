@@ -59,3 +59,14 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/assets")
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:DeepDAW>/assets")
 endif()
+
+# Optional: after each build, drop the executable into a fixed local folder so
+# there is always one stable path to the latest build. Enable per-machine with
+#   -DDEEPDAW_DEPLOY_DIR=C:/path/to/folder
+# Left unset in CI, so it is a no-op there (no hard-coded personal paths).
+if(DEFINED DEEPDAW_DEPLOY_DIR)
+    add_custom_command(TARGET DeepDAW POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${DEEPDAW_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:DeepDAW>" "${DEEPDAW_DEPLOY_DIR}/DeepDAW.exe")
+endif()
