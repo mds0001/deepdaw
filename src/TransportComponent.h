@@ -85,8 +85,11 @@ public:
     void setMasterGain(float g) { masterGain.store(juce::jlimit(0.0f, 2.0f, g)); }
     float getMasterGain() const { return masterGain.load(); }
     // Move the transport's OUT slider without firing its callback (mirror the
-    // mixer's master fader).
-    void setMasterSliderValue(float v) { masterSlider.setValue(v, juce::dontSendNotification); }
+    // mixer's master fader). v is linear gain; the slider is calibrated in dB.
+    void setMasterSliderValue(float v)
+    {
+        masterSlider.setValue(juce::Decibels::gainToDecibels((double) v, -60.0), juce::dontSendNotification);
+    }
 
     // Fired when playback starts/stops (Play, Stop, Record).
     std::function<void(bool isNowPlaying)> onPlayingChanged;
@@ -139,6 +142,7 @@ private:
     std::array<std::atomic<float>, maxMeteredTracks> trackPeaks{}; // per-track output peaks
     std::atomic<float> masterPeak{ 0.0f };      // final mix output peak
     float outMeterDisplay = 0.0f;               // smoothed master meter (UI thread)
+    float outMeterHold = 0.0f;                  // slow-decaying peak-hold marker
     juce::Rectangle<int> outMeterBounds;
 
     juce::SpinLock clipLock;

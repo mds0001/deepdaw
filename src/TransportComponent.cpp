@@ -35,14 +35,15 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
 
     masterSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     masterSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    masterSlider.setRange(0.0, 1.5, 0.001);
-    masterSlider.setValue(1.0, juce::dontSendNotification);
+    masterSlider.setRange(-60.0, 6.0, 0.1); // dB; -60 = -inf, 0 = unity
+    masterSlider.setDoubleClickReturnValue(true, 0.0);
+    masterSlider.setValue(0.0, juce::dontSendNotification);
     masterSlider.setColour(juce::Slider::thumbColourId, DeepDAWLookAndFeel::getInstance().getAccentColour());
     masterSlider.onValueChange = [this]
     {
-        const float v = (float) masterSlider.getValue();
-        setMasterGain(v);
-        if (onMasterGainChanged) onMasterGainChanged(v);
+        const float gain = (float) juce::Decibels::decibelsToGain(masterSlider.getValue(), -60.0);
+        setMasterGain(gain);
+        if (onMasterGainChanged) onMasterGainChanged(gain);
     };
     addAndMakeVisible(masterSlider);
 
@@ -66,7 +67,9 @@ void TransportComponent::timerCallback()
     meterDisplay = juce::jmax(inputLevel.load(), meterDisplay * 0.80f);
     repaint(meterBounds);
 
-    outMeterDisplay = juce::jmax(masterPeak.load(), outMeterDisplay * 0.80f);
+    const float mp = masterPeak.load();
+    outMeterDisplay = juce::jmax(mp, outMeterDisplay * 0.80f);
+    outMeterHold    = juce::jmax(mp, outMeterHold - 0.010f);
     repaint(outMeterBounds);
 }
 
@@ -132,7 +135,7 @@ void TransportComponent::paint(juce::Graphics& g)
         g.drawRect(meterBounds, 1);
     }
 
-    // Master output meter (right of the OUT slider).
+    // Master output meter (right of the OUT slider), with a peak-hold tick.
     if (! outMeterBounds.isEmpty())
     {
         g.setColour(juce::Colour(0xff141414));
@@ -142,6 +145,14 @@ void TransportComponent::paint(juce::Graphics& g)
         auto fill = outMeterBounds.toFloat().withWidth(outMeterBounds.getWidth() * level);
         g.setColour(level > 0.9f ? juce::Colour(0xffff1744) : juce::Colour(0xff00c853));
         g.fillRect(fill);
+
+        const float hold = juce::jlimit(0.0f, 1.0f, outMeterHold);
+        if (hold > 0.0f)
+        {
+            const int tx = outMeterBounds.getX() + juce::roundToInt(outMeterBounds.getWidth() * hold);
+            g.setColour(hold > 0.9f ? juce::Colour(0xffff1744) : juce::Colour(0xffd0d0d0));
+            g.fillRect(tx - 1, outMeterBounds.getY(), 2, outMeterBounds.getHeight());
+        }
 
         g.setColour(juce::Colour(0xff3a3a3a));
         g.drawRect(outMeterBounds, 1);

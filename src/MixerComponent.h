@@ -40,7 +40,9 @@ private:
     juce::Label masterLabel{"master", "MASTER"};
 
     float masterMeterLevel = 0.0f;
+    float masterMeterHold  = 0.0f;
     juce::Rectangle<int> masterMeterBounds;
+    juce::Rectangle<int> masterReadoutBounds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MixerComponent)
 };

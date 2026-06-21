@@ -34,7 +34,9 @@ private:
     juce::TextButton soloButton{"S"};
 
     float meterLevel = 0.0f; // smoothed output level (UI thread)
+    float meterHold  = 0.0f; // slow-decaying peak-hold marker
     juce::Rectangle<int> meterBounds;
+    juce::Rectangle<int> readoutBounds; // dB value under the fader
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelStripComponent)
 };
