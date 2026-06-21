@@ -17,11 +17,9 @@ MainComponent::MainComponent()
     transport = std::make_unique<TransportComponent>(deviceManager);
     addAndMakeVisible(transport.get());
 
-    // Connect the audio engine to the output device. The transport is the audio
-    // source for now (metronome); Phase 2 will sum track clips into it. This is
-    // what makes audio actually reach the speakers.
-    audioSourcePlayer.setSource(transport.get());
-    deviceManager.addAudioCallback(&audioSourcePlayer);
+    // The transport IS the device audio callback: it mixes clips + metronome to
+    // the output and reads the input (for metering, and recording in Phase 3).
+    deviceManager.addAudioCallback(transport.get());
 
     formatManager.registerBasicFormats();
 
@@ -107,8 +105,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     // Stop the audio thread touching the transport before anything is torn down.
-    deviceManager.removeAudioCallback(&audioSourcePlayer);
-    audioSourcePlayer.setSource(nullptr);
+    deviceManager.removeAudioCallback(transport.get());
 
     stopTimer();
     menuBar.setModel(nullptr);

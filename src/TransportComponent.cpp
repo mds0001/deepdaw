@@ -26,9 +26,18 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
 
     bpmLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(bpmLabel);
+
+    startTimerHz(30); // input meter refresh
 }
 
 TransportComponent::~TransportComponent() = default;
+
+void TransportComponent::timerCallback()
+{
+    // Smooth the meter: jump up to new peaks, decay down gently.
+    meterDisplay = juce::jmax(inputLevel.load(), meterDisplay * 0.80f);
+    repaint(meterBounds);
+}
 
 void TransportComponent::setBpm(double newBpm)
 {
@@ -70,6 +79,27 @@ void TransportComponent::paint(juce::Graphics& g)
     g.fillAll(DeepDAWLookAndFeel::getInstance().getPanelColour());
     g.setColour(DeepDAWLookAndFeel::getInstance().getAccentColour());
     g.drawRect(getLocalBounds(), 1);
+
+    // Input level meter.
+    if (! meterBounds.isEmpty())
+    {
+        g.setColour(juce::Colour(0xff8a8a8a));
+        g.setFont(11.0f);
+        auto labelArea = meterBounds.withWidth(20).translated(-22, 0);
+        g.drawText("IN", labelArea, juce::Justification::centredRight);
+
+        g.setColour(juce::Colour(0xff141414));
+        g.fillRect(meterBounds);
+
+        const float level = juce::jlimit(0.0f, 1.0f, meterDisplay);
+        auto fill = meterBounds.toFloat().withWidth(meterBounds.getWidth() * level);
+        g.setColour(level > 0.9f ? juce::Colour(0xffff1744)
+                                 : juce::Colour(0xff00c853)); // green, red near clip
+        g.fillRect(fill);
+
+        g.setColour(juce::Colour(0xff3a3a3a));
+        g.drawRect(meterBounds, 1);
+    }
 }
 
 void TransportComponent::resized()
@@ -89,6 +119,9 @@ void TransportComponent::resized()
     area.removeFromLeft(20);
     bpmLabel.setBounds(area.removeFromLeft(40));
     bpmSlider.setBounds(area.removeFromLeft(150));
+
+    area.removeFromLeft(40); // gap + room for the "IN" label
+    meterBounds = area.removeFromLeft(110).reduced(0, 10);
 }
 
 void TransportComponent::buttonClicked(juce::Button* button)
@@ -135,25 +168,46 @@ void TransportComponent::updateTransportState()
     metronomeButton.setToggleState(metronomeEnabled, juce::dontSendNotification);
 }
 
-void TransportComponent::prepareToPlay(int, double newSampleRate)
+void TransportComponent::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
-    sampleRate = newSampleRate;
+    sampleRate = device->getCurrentSampleRate();
+    if (sampleRate <= 0.0)
+        sampleRate = 48000.0;
     samplesPerBeat = static_cast<int>((60.0 / currentBPM) * sampleRate);
 }
 
-void TransportComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
+void TransportComponent::audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels,
+                                                          float* const* outputChannelData, int numOutputChannels,
+                                                          int numSamples,
+                                                          const juce::AudioIODeviceCallbackContext&)
 {
-    bufferToFill.clearActiveBufferRegion();
+    juce::AudioBuffer<float> output(outputChannelData, numOutputChannels, numSamples);
+    output.clear();
+    renderNextBlock(output);
 
+    // Input peak for the meter (read-only; recording to disk arrives later).
+    float peak = 0.0f;
+    for (int ch = 0; ch < numInputChannels; ++ch)
+        if (const float* in = inputChannelData[ch])
+            for (int i = 0; i < numSamples; ++i)
+                peak = juce::jmax(peak, std::abs(in[i]));
+    inputLevel.store(peak);
+}
+
+void TransportComponent::audioDeviceStopped()
+{
+    inputLevel.store(0.0f);
+}
+
+void TransportComponent::renderNextBlock(juce::AudioBuffer<float>& output)
+{
     if (! isPlaying)
         return;
 
-    auto* buffer        = bufferToFill.buffer;
-    const int start     = bufferToFill.startSample;
-    const int numSamples = bufferToFill.numSamples;
-    const int numOutCh  = buffer->getNumChannels();
-    const int64_t pos   = positionSamples.load();
-    const double sr     = sampleRate;
+    const int numSamples = output.getNumSamples();
+    const int numOutCh   = output.getNumChannels();
+    const int64_t pos    = positionSamples.load();
+    const double sr      = sampleRate;
     const double secsPerBeat = 60.0 / currentBPM;
 
     // Mix clips by reading each one at the play position (interpolated).
@@ -189,7 +243,7 @@ void TransportComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& b
                     for (int ch = 0; ch < numOutCh; ++ch)
                     {
                         const float* s = buf.getReadPointer(juce::jmin(ch, clipCh - 1));
-                        buffer->addSample(ch, start + i, s[i0] + fr * (s[i1] - s[i0]));
+                        output.addSample(ch, i, s[i0] + fr * (s[i1] - s[i0]));
                     }
                 }
             }
@@ -200,20 +254,14 @@ void TransportComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& b
     if (metronomeEnabled && samplesPerBeat > 0)
     {
         for (int i = 0; i < numSamples; ++i)
-        {
             if ((pos + i) % samplesPerBeat < 200)
             {
                 const float click = 0.3f * (float) std::sin(2.0 * juce::MathConstants<double>::pi
                                                             * 880.0 * (double) (pos + i) / sr);
                 for (int ch = 0; ch < numOutCh; ++ch)
-                    buffer->addSample(ch, start + i, click);
+                    output.addSample(ch, i, click);
             }
-        }
     }
 
     positionSamples.store(pos + numSamples);
-}
-
-void TransportComponent::releaseResources()
-{
 }

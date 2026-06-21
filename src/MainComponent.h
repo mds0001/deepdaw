@@ -71,7 +71,6 @@ private:
 
     std::unique_ptr<TransportComponent> transport;
     juce::AudioDeviceManager deviceManager;
-    juce::AudioSourcePlayer audioSourcePlayer; // pulls the transport's audio to the device
     juce::AudioFormatManager formatManager;    // reads audio files (durations, playback)
 
     // Cache of decoded audio keyed by file path, so reloading the engine's

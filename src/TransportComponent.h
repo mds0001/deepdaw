@@ -18,13 +18,14 @@ struct LoadedClip
     bool audible = true; // false when the track is muted / not soloed
 };
 
-// Transport bar UI plus the audio engine. It is the AudioSource fed to the
-// device: it owns the authoritative play position (advanced on the audio
-// thread), mixes the loaded clips at their timeline positions, and generates
-// the metronome. The UI playhead reads getPositionBeats().
+// Transport bar UI plus the audio engine. It is the device audio callback: it
+// owns the authoritative play position (advanced on the audio thread), mixes
+// the loaded clips at their timeline positions, generates the metronome, and
+// monitors the input level. The UI playhead reads getPositionBeats().
 class TransportComponent : public juce::Component,
                            public juce::Button::Listener,
-                           public juce::AudioSource
+                           public juce::AudioIODeviceCallback,
+                           private juce::Timer
 {
 public:
     explicit TransportComponent(juce::AudioDeviceManager& deviceManager);
@@ -34,10 +35,13 @@ public:
     void resized() override;
     void buttonClicked(juce::Button*) override;
 
-    // AudioSource
-    void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
-    void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
-    void releaseResources() override;
+    // AudioIODeviceCallback
+    void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
+    void audioDeviceIOCallbackWithContext(const float* const* inputChannelData, int numInputChannels,
+                                          float* const* outputChannelData, int numOutputChannels,
+                                          int numSamples,
+                                          const juce::AudioIODeviceCallbackContext& context) override;
+    void audioDeviceStopped() override;
 
     double getBpm() const { return currentBPM; }
     void setBpm(double newBpm);
@@ -52,6 +56,9 @@ public:
     // when the project's clips change).
     void setClips(std::vector<LoadedClip>&& newClips);
 
+    // Most recent input peak (0..1), for metering.
+    float getInputLevel() const { return inputLevel.load(); }
+
     // Fired when playback starts/stops (Play, Stop, Record).
     std::function<void(bool isNowPlaying)> onPlayingChanged;
     // Fired when the position should jump back to the start (Stop, Rewind).
@@ -59,6 +66,8 @@ public:
 
 private:
     void updateTransportState();
+    void renderNextBlock(juce::AudioBuffer<float>& output); // clips + metronome
+    void timerCallback() override;                          // drives the input meter
 
     juce::AudioDeviceManager& deviceManager;
 
@@ -80,6 +89,9 @@ private:
     int samplesPerBeat = 0;
 
     std::atomic<int64_t> positionSamples{ 0 }; // authoritative play position
+    std::atomic<float> inputLevel{ 0.0f };     // last input peak, for the meter
+    float meterDisplay = 0.0f;                  // smoothed meter value (UI thread)
+    juce::Rectangle<int> meterBounds;
 
     juce::SpinLock clipLock;
     std::vector<LoadedClip> loadedClips;
