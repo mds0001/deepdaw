@@ -25,8 +25,13 @@ public:
     std::function<void()> onDeleteRequested;
     // Fired when the user picks "Import Audio…" from the right-click menu.
     std::function<void()> onImportAudioRequested;
-    // Fired when any visible property changes (name, colour, M/S/R state).
+    // Fired when a structural property changes (name, colour, record-arm).
     std::function<void()> onChanged;
+    // Fired when mute/solo changes (audibility only — no structural rebuild).
+    std::function<void()> onMixChanged;
+
+    // Pull M/S/colour back from the model after an external (mixer) edit.
+    void refreshControls() { updateToggleStates(); }
     // Row-reorder drag, forwarded to the owning list (which does the work).
     std::function<void(TrackHeaderComponent*, const juce::MouseEvent&)> onDragStart;
     std::function<void(TrackHeaderComponent*, const juce::MouseEvent&)> onDrag;

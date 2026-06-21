@@ -37,6 +37,8 @@ target_sources(DeepDAW
         src/TimelineRulerComponent.cpp
         src/ClipComponent.cpp
         src/Project.cpp
+        src/ChannelStripComponent.cpp
+        src/MixerComponent.cpp
 )
 
 target_include_directories(DeepDAW PRIVATE src)

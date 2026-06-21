@@ -74,6 +74,9 @@ public:
     // Master output gain (linear).
     void setMasterGain(float g) { masterGain.store(juce::jlimit(0.0f, 2.0f, g)); }
     float getMasterGain() const { return masterGain.load(); }
+    // Move the transport's OUT slider without firing its callback (mirror the
+    // mixer's master fader).
+    void setMasterSliderValue(float v) { masterSlider.setValue(v, juce::dontSendNotification); }
 
     // Fired when playback starts/stops (Play, Stop, Record).
     std::function<void(bool isNowPlaying)> onPlayingChanged;
@@ -81,6 +84,8 @@ public:
     std::function<void(bool isNowRecording)> onRecordingChanged;
     // Fired when the position should jump back to the start (Stop, Rewind).
     std::function<void()> onReturnToZero;
+    // Fired when the transport's OUT slider moves (so the mixer can mirror it).
+    std::function<void(float)> onMasterGainChanged;
 
 private:
     void updateTransportState();

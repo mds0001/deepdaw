@@ -38,8 +38,8 @@ TrackHeaderComponent::TrackHeaderComponent(Track& trackToControl, int indexToSho
     setupToggle(soloButton, soloOnColour);
     setupToggle(armButton, armOnColour);
 
-    muteButton.onClick = [this] { track.muted  = muteButton.getToggleState(); if (onChanged) onChanged(); };
-    soloButton.onClick = [this] { track.soloed = soloButton.getToggleState(); if (onChanged) onChanged(); };
+    muteButton.onClick = [this] { track.muted  = muteButton.getToggleState(); if (onMixChanged) onMixChanged(); };
+    soloButton.onClick = [this] { track.soloed = soloButton.getToggleState(); if (onMixChanged) onMixChanged(); };
     armButton.onClick  = [this] { track.armed  = armButton.getToggleState(); updateMeterTimer(); if (onChanged) onChanged(); };
 
     updateToggleStates();

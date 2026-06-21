@@ -39,6 +39,21 @@ MainComponent::MainComponent()
     addAndMakeVisible(zoomInButton);
     addAndMakeVisible(zoomOutButton);
 
+    mixerButton.setClickingTogglesState(true);
+    mixerButton.setColour(juce::TextButton::buttonOnColourId,
+                          DeepDAWLookAndFeel::getInstance().getAccentColour());
+    mixerButton.onClick = [this] { toggleMixer(); };
+    addAndMakeVisible(mixerButton);
+
+    // Mixer panel: hidden until toggled. Strips are (re)built from the model.
+    addChildComponent(mixer);
+    mixer.onMixChanged = [this] { handleMixChanged(); };
+    mixer.onMasterChanged = [this](float v)
+    {
+        transport->setMasterGain(v);
+        transport->setMasterSliderValue(v); // keep the transport OUT slider in sync
+    };
+
     tracksHeaderLabel.setJustificationType(juce::Justification::centredLeft);
     tracksHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8a8a8a));
     tracksHeaderLabel.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
@@ -73,6 +88,7 @@ MainComponent::MainComponent()
     ruler.onZoomGesture = [this](float deltaY, float anchorX) { applyZoom(deltaY > 0.0f ? 1.15 : 1.0 / 1.15, (double) anchorX); };
 
     trackList.onTracksChanged = [this] { handleTracksChanged(); };
+    trackList.onTrackMixChanged = [this] { handleMixChanged(); };
     trackList.onImportAudioRequested = [this](int trackId) { importAudioForTrack(trackId); };
     trackList.inputLevelProvider = [this] { return transport->getInputLevel(); };
     timeline.onFileDropped = [this](int trackId, double startBeat, const juce::File& file)
@@ -104,6 +120,8 @@ MainComponent::MainComponent()
         if (recording) startRecordingFlow();
         else           stopRecordingFlow();
     };
+
+    transport->onMasterGainChanged = [this](float v) { mixer.setMasterValue(v); };
 
     transport->onReturnToZero = [this] { setPlayheadBeats(0.0); };
     transport->onPlayingChanged = [this](bool playing)
@@ -280,11 +298,31 @@ void MainComponent::handleTracksChanged()
 {
     // The track list has already resized itself to its new row count; mirror
     // that in the timeline (including its clip blocks), reload the audio
-    // engine's clips, and refresh bounds.
+    // engine's clips, rebuild the mixer strips, and refresh bounds.
     timeline.rebuildClips();
+    mixer.rebuild();
     reloadEngineClips();
     updateContentBounds();
     timeline.repaint();
+}
+
+void MainComponent::handleMixChanged()
+{
+    // A fader/pan/mute/solo edit (from a mixer strip or a track header). Update
+    // the engine and keep the other view's controls in sync — no rebuild, so
+    // this is safe to call from a strip/header button's own click handler.
+    reloadEngineClips();
+    trackList.refreshHeaderControls();
+    mixer.refreshStrips();
+}
+
+void MainComponent::toggleMixer()
+{
+    mixerVisible = mixerButton.getToggleState();
+    mixer.setVisible(mixerVisible);
+    if (mixerVisible)
+        mixer.rebuild(); // ensure strips match the current track list
+    resized();
 }
 
 void MainComponent::startRecordingFlow()
@@ -467,6 +505,13 @@ void MainComponent::resized()
     zoomInButton.setBounds(controls.removeFromRight(36));
     controls.removeFromRight(6);
     zoomOutButton.setBounds(controls.removeFromRight(36));
+
+    controls.removeFromRight(14);
+    mixerButton.setBounds(controls.removeFromRight(72));
+
+    // Mixer panel docks along the bottom (above the status bar) when shown.
+    if (mixerVisible)
+        mixer.setBounds(area.removeFromBottom(mixerHeight));
 
     auto left = area.removeFromLeft(trackListWidth);
     tracksHeaderLabel.setBounds(left.removeFromTop(TimelineComponent::rulerHeight)

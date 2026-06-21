@@ -8,6 +8,7 @@
 #include "TrackListComponent.h"
 #include "TimelineComponent.h"
 #include "TimelineRulerComponent.h"
+#include "MixerComponent.h"
 
 class MainComponent : public juce::Component,
                       public juce::MenuBarModel,
@@ -45,6 +46,8 @@ private:
 
     void addTrack(TrackType type);
     void handleTracksChanged();
+    void handleMixChanged(); // gain/pan/M-S edit: reload engine + refresh views
+    void toggleMixer();
     void syncVerticalScroll(int y, bool fromTrackList);
     void updateContentBounds();
 
@@ -93,6 +96,7 @@ private:
     juce::TextButton addMidiButton{"+ MIDI Track"};
     juce::TextButton zoomInButton{"+"};
     juce::TextButton zoomOutButton{"-"};
+    juce::TextButton mixerButton{"Mixer"};
     juce::Label tracksHeaderLabel{"tracksHeader", "TRACKS"};
     juce::Label statusBar{"statusBar"};
 
@@ -101,6 +105,10 @@ private:
     TrackListComponent trackList;
     TimelineComponent timeline{trackList, formatManager};
     TimelineRulerComponent ruler{timeline};
+    MixerComponent mixer{trackList};
+
+    bool mixerVisible = false;
+    static constexpr int mixerHeight = 210;
 
     SyncViewport trackListViewport;
     SyncViewport timelineViewport;

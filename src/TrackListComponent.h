@@ -33,10 +33,18 @@ public:
     static constexpr int rowHeight = 64;
 
     const std::vector<std::unique_ptr<Track>>& getTracks() const { return tracks; }
+    std::vector<std::unique_ptr<Track>>& getTracks() { return tracks; }
+
+    // Pull each header's mute/solo/colour back from the model (after a mixer
+    // strip edits it) without recreating the headers.
+    void refreshHeaderControls();
 
     // Notified whenever tracks are added, removed, or edited so the host can
     // resize/repaint the timeline alongside the list.
     std::function<void()> onTracksChanged;
+    // Fired for mute/solo (or mixer-driven) changes that only affect audibility:
+    // reload the engine + refresh views, no structural rebuild.
+    std::function<void()> onTrackMixChanged;
     // Fired when a track requests an audio import (host shows the file chooser).
     std::function<void(int trackId)> onImportAudioRequested;
     // Supplies the current input peak (0..1) to armed-track meters.

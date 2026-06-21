@@ -38,7 +38,12 @@ TransportComponent::TransportComponent(juce::AudioDeviceManager& dm)
     masterSlider.setRange(0.0, 1.5, 0.001);
     masterSlider.setValue(1.0, juce::dontSendNotification);
     masterSlider.setColour(juce::Slider::thumbColourId, DeepDAWLookAndFeel::getInstance().getAccentColour());
-    masterSlider.onValueChange = [this] { setMasterGain((float) masterSlider.getValue()); };
+    masterSlider.onValueChange = [this]
+    {
+        const float v = (float) masterSlider.getValue();
+        setMasterGain(v);
+        if (onMasterGainChanged) onMasterGainChanged(v);
+    };
     addAndMakeVisible(masterSlider);
 
     masterLabel.setJustificationType(juce::Justification::centredRight);

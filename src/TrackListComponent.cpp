@@ -120,6 +120,7 @@ void TrackListComponent::rebuildHeaders()
         header->onDeleteRequested = [this, trackId] { removeTrack(trackId); };
         header->onImportAudioRequested = [this, trackId] { if (onImportAudioRequested) onImportAudioRequested(trackId); };
         header->onChanged = [this] { notifyChanged(); };
+        header->onMixChanged = [this] { if (onTrackMixChanged) onTrackMixChanged(); };
         header->getInputLevel = [this] { return inputLevelProvider ? inputLevelProvider() : 0.0f; };
         header->onDragStart = [this](TrackHeaderComponent* h, const juce::MouseEvent& e) { startDrag(h, e.getEventRelativeTo(this).y); };
         header->onDrag      = [this](TrackHeaderComponent* h, const juce::MouseEvent& e) { dragRow(h, e.getEventRelativeTo(this).y); };
@@ -138,6 +139,12 @@ void TrackListComponent::notifyChanged()
 {
     if (onTracksChanged)
         onTracksChanged();
+}
+
+void TrackListComponent::refreshHeaderControls()
+{
+    for (auto& h : headers)
+        h->refreshControls();
 }
 
 int TrackListComponent::indexOfHeader(const TrackHeaderComponent* header) const
