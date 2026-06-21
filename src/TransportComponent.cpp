@@ -163,11 +163,16 @@ void TransportComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& b
         {
             for (const auto& clip : loadedClips)
             {
-                const double clipStartSec = clip.startBeat * secsPerBeat;
-                const int clipLen = clip.audio.getNumSamples();
-                const int clipCh  = clip.audio.getNumChannels();
+                if (! clip.audible || clip.audio == nullptr)
+                    continue;
+
+                const auto& buf = *clip.audio;
+                const int clipLen = buf.getNumSamples();
+                const int clipCh  = buf.getNumChannels();
                 if (clipLen <= 0 || clipCh <= 0)
                     continue;
+
+                const double clipStartSec = clip.startBeat * secsPerBeat;
                 const double clipDurSec = clipLen / clip.fileSampleRate;
 
                 for (int i = 0; i < numSamples; ++i)
@@ -183,7 +188,7 @@ void TransportComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& b
 
                     for (int ch = 0; ch < numOutCh; ++ch)
                     {
-                        const float* s = clip.audio.getReadPointer(juce::jmin(ch, clipCh - 1));
+                        const float* s = buf.getReadPointer(juce::jmin(ch, clipCh - 1));
                         buffer->addSample(ch, start + i, s[i0] + fr * (s[i1] - s[i0]));
                     }
                 }

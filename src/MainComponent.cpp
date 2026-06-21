@@ -177,6 +177,7 @@ void MainComponent::newProject()
 {
     trackList.clear();
     transport->setBpm(120.0);
+    audioCache.clear();
     currentProjectFile = juce::File();
     setWindowTitle("Untitled");
 }
@@ -278,24 +279,43 @@ void MainComponent::handleTracksChanged()
 
 void MainComponent::reloadEngineClips()
 {
-    // Preload every clip's audio into memory for real-time-safe playback.
-    std::vector<LoadedClip> loaded;
+    // Standard solo rule: if any track is soloed, only soloed tracks sound;
+    // otherwise muted tracks are silent.
+    bool anySolo = false;
+    for (const auto& t : trackList.getTracks())
+        if (t->soloed) { anySolo = true; break; }
 
+    std::vector<LoadedClip> loaded;
     for (const auto& track : trackList.getTracks())
+    {
+        const bool trackAudible = anySolo ? track->soloed : ! track->muted;
+
         for (const auto& clip : track->clips)
         {
-            juce::File file(clip.filePath);
-            std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
-            if (reader == nullptr || reader->lengthInSamples <= 0)
-                continue;
+            const std::string key = clip.filePath.toStdString();
+            auto it = audioCache.find(key);
+
+            if (it == audioCache.end())
+            {
+                juce::File file(clip.filePath);
+                std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
+                if (reader == nullptr || reader->lengthInSamples <= 0)
+                    continue;
+
+                auto buf = std::make_shared<juce::AudioBuffer<float>>((int) reader->numChannels,
+                                                                      (int) reader->lengthInSamples);
+                reader->read(buf.get(), 0, (int) reader->lengthInSamples, 0, true, true);
+                it = audioCache.emplace(key, CachedAudio{ buf, reader->sampleRate }).first;
+            }
 
             LoadedClip lc;
-            lc.fileSampleRate = reader->sampleRate;
+            lc.audio          = it->second.buffer;
+            lc.fileSampleRate = it->second.sampleRate;
             lc.startBeat      = clip.startBeat;
-            lc.audio.setSize((int) reader->numChannels, (int) reader->lengthInSamples);
-            reader->read(&lc.audio, 0, (int) reader->lengthInSamples, 0, true, true);
+            lc.audible        = trackAudible;
             loaded.push_back(std::move(lc));
         }
+    }
 
     transport->setClips(std::move(loaded));
 }

@@ -3,15 +3,19 @@
 #include <JuceHeader.h>
 #include <atomic>
 #include <vector>
+#include <memory>
 
-// One audio clip preloaded into memory for real-time-safe playback. Stored at
-// the file's own sample rate; the engine reads it by time so a sample-rate
-// mismatch with the device is handled by interpolation.
+// One audio clip preloaded into memory for real-time-safe playback. The buffer
+// is shared (and immutable) so reloading the clip set after a mute/solo change
+// reuses cached audio without re-reading the file. Stored at the file's own
+// sample rate; the engine reads it by time, so a device sample-rate mismatch is
+// handled by interpolation.
 struct LoadedClip
 {
-    juce::AudioBuffer<float> audio;
+    std::shared_ptr<const juce::AudioBuffer<float>> audio;
     double fileSampleRate = 44100.0;
     double startBeat = 0.0;
+    bool audible = true; // false when the track is muted / not soloed
 };
 
 // Transport bar UI plus the audio engine. It is the AudioSource fed to the

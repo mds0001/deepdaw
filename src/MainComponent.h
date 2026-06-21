@@ -1,6 +1,9 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <unordered_map>
+#include <string>
+#include <memory>
 #include "TransportComponent.h"
 #include "TrackListComponent.h"
 #include "TimelineComponent.h"
@@ -69,7 +72,16 @@ private:
     std::unique_ptr<TransportComponent> transport;
     juce::AudioDeviceManager deviceManager;
     juce::AudioSourcePlayer audioSourcePlayer; // pulls the transport's audio to the device
-    juce::AudioFormatManager formatManager;    // reads audio files (durations, later playback)
+    juce::AudioFormatManager formatManager;    // reads audio files (durations, playback)
+
+    // Cache of decoded audio keyed by file path, so reloading the engine's
+    // clips after a mute/solo/move change does not re-read files from disk.
+    struct CachedAudio
+    {
+        std::shared_ptr<const juce::AudioBuffer<float>> buffer;
+        double sampleRate = 44100.0;
+    };
+    std::unordered_map<std::string, CachedAudio> audioCache;
 
     juce::TextButton addAudioButton{"+ Audio Track"};
     juce::TextButton addMidiButton{"+ MIDI Track"};
