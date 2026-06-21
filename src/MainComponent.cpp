@@ -21,6 +21,11 @@ MainComponent::MainComponent()
     addAndMakeVisible(addAudioButton);
     addAndMakeVisible(addMidiButton);
 
+    zoomInButton.onClick  = [this] { applyZoom(1.25, timelineViewportCentreX()); };
+    zoomOutButton.onClick = [this] { applyZoom(0.80, timelineViewportCentreX()); };
+    addAndMakeVisible(zoomInButton);
+    addAndMakeVisible(zoomOutButton);
+
     tracksHeaderLabel.setJustificationType(juce::Justification::centredLeft);
     tracksHeaderLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8a8a8a));
     tracksHeaderLabel.setFont(juce::Font(12.0f, juce::Font::bold));
@@ -47,6 +52,11 @@ MainComponent::MainComponent()
     // Playhead: the timeline reports clicks, the transport reports play state,
     // and a timer advances the position while playing.
     timeline.onSeek = [this](double beats) { setPlayheadBeats(beats); };
+
+    timeline.onZoomGesture = [this](float deltaY, float anchorContentX)
+    {
+        applyZoom(deltaY > 0.0f ? 1.15 : 1.0 / 1.15, (double) anchorContentX);
+    };
 
     transport->onReturnToZero = [this] { setPlayheadBeats(0.0); };
     transport->onPlayingChanged = [this](bool playing)
@@ -243,6 +253,25 @@ void MainComponent::syncVerticalScroll(int y, bool fromTrackList)
         trackListViewport.setViewPosition(0, y);
 }
 
+double MainComponent::timelineViewportCentreX() const
+{
+    return timelineViewport.getViewPositionX() + timelineViewport.getWidth() / 2.0;
+}
+
+void MainComponent::applyZoom(double factor, double anchorContentX)
+{
+    // Remember which beat sits under the anchor and where the anchor is within
+    // the viewport, then restore that after rescaling so the point stays put.
+    const double beatAtAnchor   = anchorContentX / timeline.getPixelsPerBeat();
+    const double anchorInView   = anchorContentX - timelineViewport.getViewPositionX();
+
+    timeline.setZoom(timeline.getZoom() * factor);
+
+    const double newContentX = beatAtAnchor * timeline.getPixelsPerBeat();
+    const int newScrollX = juce::jmax(0, juce::roundToInt(newContentX - anchorInView));
+    timelineViewport.setViewPosition(newScrollX, timelineViewport.getViewPositionY());
+}
+
 void MainComponent::updateContentBounds()
 {
     timeline.updateContentSize();
@@ -269,6 +298,11 @@ void MainComponent::resized()
     addAudioButton.setBounds(controls.removeFromLeft(120));
     controls.removeFromLeft(8);
     addMidiButton.setBounds(controls.removeFromLeft(120));
+
+    // Zoom controls live at the right edge of the strip.
+    zoomInButton.setBounds(controls.removeFromRight(36));
+    controls.removeFromRight(6);
+    zoomOutButton.setBounds(controls.removeFromRight(36));
 
     auto left = area.removeFromLeft(trackListWidth);
     tracksHeaderLabel.setBounds(left.removeFromTop(TimelineComponent::rulerHeight)

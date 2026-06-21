@@ -44,6 +44,11 @@ private:
     void syncVerticalScroll(int y, bool fromTrackList);
     void updateContentBounds();
 
+    // Zoom the timeline by factor, keeping anchorContentX under the same screen
+    // position (cursor for Ctrl+wheel, viewport centre for the +/- buttons).
+    void applyZoom(double factor, double anchorContentX);
+    double timelineViewportCentreX() const;
+
     // Project file operations (wired to the File menu).
     void newProject();
     void openProject();
@@ -61,6 +66,8 @@ private:
 
     juce::TextButton addAudioButton{"+ Audio Track"};
     juce::TextButton addMidiButton{"+ MIDI Track"};
+    juce::TextButton zoomInButton{"+"};
+    juce::TextButton zoomOutButton{"-"};
     juce::Label tracksHeaderLabel{"tracksHeader", "TRACKS"};
 
     // Declaration order matters: timeline holds a reference to trackList, so

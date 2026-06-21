@@ -10,8 +10,19 @@ TimelineComponent::TimelineComponent(TrackListComponent& list)
 void TimelineComponent::updateContentSize()
 {
     const int n = juce::jmax(1, trackList.getNumTracks());
-    setSize(numBars * pixelsPerBar,
+    setSize(juce::roundToInt(numBars * getPixelsPerBar()),
             rulerHeight + n * TrackListComponent::rowHeight);
+}
+
+void TimelineComponent::setZoom(double newZoom)
+{
+    newZoom = juce::jlimit(minZoom, maxZoom, newZoom);
+    if (newZoom == zoom)
+        return;
+
+    zoom = newZoom;
+    updateContentSize(); // width changes with the scale
+    repaint();
 }
 
 void TimelineComponent::paint(juce::Graphics& g)
@@ -20,10 +31,11 @@ void TimelineComponent::paint(juce::Graphics& g)
 
     g.fillAll(juce::Colour(0xff1b1b1c));
 
-    const int rowH       = TrackListComponent::rowHeight;
-    const int numTracks  = trackList.getNumTracks();
+    const int rowH        = TrackListComponent::rowHeight;
+    const int numTracks   = trackList.getNumTracks();
     const int lanesBottom = rulerHeight + numTracks * rowH;
-    const int beatWidth  = pixelsPerBar / 4;
+    const double ppb      = getPixelsPerBar();
+    const double ppbeat   = ppb / 4.0;
 
     // Lane backgrounds, alternating to match the track headers row-for-row.
     for (int i = 0; i < numTracks; ++i)
@@ -33,23 +45,20 @@ void TimelineComponent::paint(juce::Graphics& g)
         g.fillRect(0, laneY, getWidth(), rowH);
     }
 
-    // Beat subdivisions (lighter) then bar lines (stronger), spanning the lanes.
+    // Beat subdivisions (lighter), spanning the lanes.
     if (numTracks > 0)
     {
+        g.setColour(juce::Colour(0xff2a2a2c));
         for (int bar = 0; bar < numBars; ++bar)
-        {
-            const int x = bar * pixelsPerBar;
-            g.setColour(juce::Colour(0xff2a2a2c));
             for (int beat = 1; beat < 4; ++beat)
-                g.fillRect(x + beat * beatWidth, rulerHeight, 1, numTracks * rowH);
-        }
+                g.fillRect(juce::roundToInt(bar * ppb + beat * ppbeat), rulerHeight,
+                           1, numTracks * rowH);
     }
 
+    // Bar lines (stronger).
+    g.setColour(juce::Colour(0xff3a3a3c));
     for (int bar = 0; bar <= numBars; ++bar)
-    {
-        g.setColour(juce::Colour(0xff3a3a3c));
-        g.fillRect(bar * pixelsPerBar, 0, 1, lanesBottom);
-    }
+        g.fillRect(juce::roundToInt(bar * ppb), 0, 1, lanesBottom);
 
     // Ruler strip with bar numbers, drawn last so it sits above the grid.
     g.setColour(juce::Colour(0xff2a2a2b));
@@ -59,7 +68,7 @@ void TimelineComponent::paint(juce::Graphics& g)
     g.setFont(12.0f);
     for (int bar = 0; bar < numBars; ++bar)
         g.drawText(juce::String(bar + 1),
-                   bar * pixelsPerBar + 4, 0, pixelsPerBar - 4, rulerHeight,
+                   juce::roundToInt(bar * ppb) + 4, 0, juce::roundToInt(ppb) - 4, rulerHeight,
                    juce::Justification::centredLeft);
 
     g.setColour(lf.getAccentColour().withAlpha(0.5f));
@@ -89,7 +98,7 @@ void TimelineComponent::paint(juce::Graphics& g)
 
 int TimelineComponent::playheadX() const
 {
-    return juce::roundToInt(playheadBeats * pixelsPerBeat);
+    return juce::roundToInt(playheadBeats * getPixelsPerBeat());
 }
 
 void TimelineComponent::setPlayheadBeats(double beats)
@@ -110,7 +119,23 @@ void TimelineComponent::setPlayheadBeats(double beats)
 
 void TimelineComponent::mouseDown(const juce::MouseEvent& e)
 {
-    const double beats = juce::jmax(0.0, e.position.x / (double) pixelsPerBeat);
+    const double beats = juce::jmax(0.0, e.position.x / getPixelsPerBeat());
     if (onSeek)
         onSeek(beats);
+}
+
+void TimelineComponent::mouseWheelMove(const juce::MouseEvent& e,
+                                       const juce::MouseWheelDetails& wheel)
+{
+    // Ctrl/Cmd + wheel zooms about the cursor; a plain wheel is forwarded to
+    // the parent Viewport so normal scrolling keeps working.
+    if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+    {
+        if (onZoomGesture && wheel.deltaY != 0.0f)
+            onZoomGesture(wheel.deltaY, e.position.x);
+    }
+    else
+    {
+        Component::mouseWheelMove(e, wheel);
+    }
 }
