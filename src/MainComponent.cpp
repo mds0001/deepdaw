@@ -23,7 +23,9 @@ MainComponent::MainComponent()
 
     formatManager.registerBasicFormats();
 
-    recordingsDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+    // Persistent location (not temp, which the OS can purge) so recorded clips
+    // survive across sessions and reopen correctly.
+    recordingsDir = juce::File::getSpecialLocation(juce::File::userMusicDirectory)
                         .getChildFile("DeepDAW Recordings");
     recordingsDir.createDirectory();
 
